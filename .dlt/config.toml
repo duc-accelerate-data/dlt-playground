@@ -1,0 +1,12 @@
+# Non-secret defaults. Secrets live in .dlt/secrets.toml (gitignored).
+# Override via env vars: SOURCES__<NAME>__<KEY>=...
+
+[runtime]
+log_level = "INFO"
+
+[normalize]
+# Reasonable bronze defaults — small, durable load packages.
+data_writer.disable_compression = false
+
+[schema]
+naming = "snake_case"

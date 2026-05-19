@@ -1,0 +1,5 @@
+{"event_id":"e6","user_id":"u_001","event":"page_view","ts":"2026-05-11T07:55:00Z","props":{"path":"/"},"experiment":"hero_v2"}
+{"event_id":"e7","user_id":"u_002","event":"page_view","ts":"2026-05-11T08:10:00Z","props":{"path":"/blog/why-dlt"},"experiment":"hero_v2"}
+{"event_id":"e8","user_id":"u_004","event":"signup","ts":"2026-05-11T09:33:21Z","props":{"plan":"free"},"experiment":"pricing_v3"}
+{"event_id":"e9","user_id":"u_003","event":"page_view","ts":"2026-05-11T11:01:00Z","props":{"path":"/docs/intro"},"experiment":"hero_v2"}
+{"event_id":"e3","user_id":"u_002","event":"signup","ts":"2026-05-10T09:14:55Z","props":{"plan":"pro"}}

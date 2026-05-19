@@ -1,0 +1,26 @@
+[project]
+name = "dlt-playground"
+version = "0.1.0"
+description = "Beginner-to-intermediate dlt exercises over realistic industry data"
+requires-python = ">=3.11"
+dependencies = [
+    "dlt[duckdb,postgres]>=1.21.0",
+    "requests>=2.32",
+    "pydantic>=2.7",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "duckdb>=1.1",
+    "ruff>=0.6",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pytest.ini_options]
+testpaths = ["exercises"]
+python_files = ["test_*.py"]

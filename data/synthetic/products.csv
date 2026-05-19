@@ -1,0 +1,7 @@
+sku,name,price,active,launched_on
+BOOK-CALC,The Calculus Affair,19.99,true,2025-01-15
+BOOK-COBOL,COBOL Forever,49.95,true,2024-08-30
+STICKER-PI,Pi Stickers (8-pack),5.00,true,2025-03-01
+MUG-GO,Gopher Mug,9.90,false,2024-11-11
+TSHIRT-LX,Linux T-Shirt,29.99,TRUE,2025-06-22
+BOOK-EU,A Brief History of EU,17.50,1,

@@ -1,0 +1,5 @@
+{"event_id":"e1","user_id":"u_001","event":"page_view","ts":"2026-05-10T08:00:00Z","props":{"path":"/"}}
+{"event_id":"e2","user_id":"u_001","event":"page_view","ts":"2026-05-10T08:01:12Z","props":{"path":"/pricing"}}
+{"event_id":"e3","user_id":"u_002","event":"signup","ts":"2026-05-10T09:14:55Z","props":{"plan":"pro"}}
+{"event_id":"e4","user_id":"u_003","event":"page_view","ts":"2026-05-10T10:02:00Z","props":{"path":"/"}}
+{"event_id":"e5","user_id":"u_001","event":"page_view","ts":"2026-05-10T10:30:00Z","props":{"path":"/docs"}}
