@@ -68,6 +68,28 @@ Go in order — concepts build on each other. Each exercise should take 15–30 
 | 14 | [Merge keys / dedup](exercises/14-merge-keys) | intermediate | `primary_key`, `merge_key`, `dedup_sort` |
 | 15 | [Destination capabilities](exercises/15-destination-caps) | intermediate | destination-specific behavior |
 | 16 | [Config providers + secrets](exercises/16-config-secrets) | intermediate | `dlt.secrets.value`, `section=` |
+| 20 | [Multi-version schema drift](exercises/20-drift-timeline) | intermediate | 4-version timeline + 3 contract policies |
+| 21 | [Retries + 429 / backoff](exercises/21-retries) | intermediate | `dlt.sources.helpers.requests.Client` |
+| 22 | [Partial failure + resume](exercises/22-partial-failure) | intermediate | atomic load packages, `_dlt_loads.status` |
+| 23 | [Streaming pagination + memory](exercises/23-streaming) | intermediate | generators, `chunk_size` |
+| 24 | [Data quality + PII redaction](exercises/24-data-quality) | intermediate | `add_filter`, `add_map`, Pydantic `columns=` |
+
+## Verifying your solutions
+
+Each exercise ships a `verify.py` that runs the solution and asserts the resulting state:
+
+```bash
+# verify one
+python exercises/01-pipeline/verify.py
+
+# verify everything
+python verify_all.py
+
+# verify a subset
+python verify_all.py 04 05 14 20
+```
+
+Exercises that need a GitHub PAT (06, 10, 11, 16) print `SKIP` when the token is missing.
 
 ## Industry best-practice cheat sheet
 
