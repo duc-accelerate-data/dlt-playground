@@ -66,7 +66,6 @@ pipeline = dlt.pipeline(
     pipeline_name="retries",
     destination=dlt.destinations.duckdb(str(REPO / "data" / "warehouse.duckdb")),
     dataset_name="resilience",
-    dev_mode=True,
 )
 
 t0 = time.perf_counter()
@@ -77,5 +76,5 @@ print(f"  flaky took {time.perf_counter()-t0:.2f}s after {ATTEMPTS['n']} attempt
 try:
     ATTEMPTS["n"] = 0
     pipeline.run(items("https://example.test/forbidden"))
-except Permanent as e:
-    print(f"  fast-failed correctly on 401 after {ATTEMPTS['n']} attempt(s): {e}")
+except Exception as e:
+    print(f"  fast-failed on 401 after {ATTEMPTS['n']} attempt(s): {type(e).__name__}")

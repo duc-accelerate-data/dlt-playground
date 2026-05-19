@@ -14,17 +14,16 @@ WH = REPO / "data" / "warehouse.duckdb"
 
 def load_for(disposition: str, dataset: str, primary_key=None):
     @dlt.resource(name="events", write_disposition=disposition, primary_key=primary_key)
-    def events(day: int):
+    def evts(day: int):
         yield from events_resource(day=day)
 
     pipeline = dlt.pipeline(
         pipeline_name=f"wd_{disposition}",
         destination=dlt.destinations.duckdb(str(WH)),
         dataset_name=dataset,
-        dev_mode=True,  # wipe between policies for a clean comparison
     )
     for day in (1, 2, 1, 2):
-        pipeline.run(events(day))
+        pipeline.run(evts(day))
 
     n = duckdb.connect(str(WH)).execute(f"SELECT COUNT(*) FROM {dataset}.events").fetchone()[0]
     print(f"{disposition:<8} rows={n}")

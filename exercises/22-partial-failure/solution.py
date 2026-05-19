@@ -44,8 +44,9 @@ CRASH_FLAG.touch()
 p1 = fresh_pipeline()
 try:
     p1.run(numbers())
-except RuntimeError as e:
-    print(f"run 1 crashed (expected): {e}")
+except Exception as e:
+    # dlt wraps the inner RuntimeError in PipelineStepFailed
+    print(f"run 1 crashed (expected): {type(e).__name__}")
 print(f"  has_pending_data={p1.has_pending_data}")
 
 # --- Run 2: no crash, full replay ---

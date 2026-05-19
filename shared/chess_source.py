@@ -8,9 +8,9 @@ BASE = "https://api.chess.com/pub"
 HEADERS = {"User-Agent": "dlt-playground (https://github.com/duc-accelerate-data)"}
 
 
-@dlt.resource(name="player_profile", write_disposition="replace")
+@dlt.resource(name="player_profile", primary_key="player_id", write_disposition="merge")
 def player_profile(usernames: list[str]):
-    """One profile row per username. Replace each run — profile state is the source of truth."""
+    """One profile row per username. Merge by player_id so re-runs don't accumulate child rows."""
     for u in usernames:
         r = requests.get(f"{BASE}/player/{u}", headers=HEADERS)
         r.raise_for_status()

@@ -23,10 +23,13 @@ def naive():
     yield buf  # one giant yield — high memory
 
 
-@dlt.resource(name="rows", primary_key="i", write_disposition="merge", chunk_size=10_000)
+@dlt.resource(name="rows", primary_key="i", write_disposition="merge")
 def stream():
+    # Chunk tuning in dlt 1.x lives in normalize/extract config (BUFFER_MAX_ITEMS,
+    # FILE_MAX_ITEMS) not as a resource kwarg. The lesson is the *yield shape*:
+    # per-page generator yields are bounded; a single mega-list yield is not.
     for p in range(PAGES):
-        yield fake_page(p)  # bounded memory; dlt buffers chunk_size at a time
+        yield fake_page(p)
 
 
 def run_and_measure(res, dataset):
@@ -34,7 +37,6 @@ def run_and_measure(res, dataset):
         pipeline_name=f"mem_{dataset}",
         destination=dlt.destinations.duckdb(str(WH)),
         dataset_name=dataset,
-        dev_mode=True,
     )
     p.run(res)
     peak_kb = rss.getrusage(rss.RUSAGE_SELF).ru_maxrss  # macOS bytes / linux kb

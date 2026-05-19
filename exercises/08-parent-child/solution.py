@@ -19,17 +19,23 @@ def player_profile(usernames):
         yield r.json()
 
 
+# Bind the parent BEFORE the transformer references it via data_from, so dlt knows
+# which arguments to feed.
+_parent = player_profile(["magnuscarlsen", "hikaru"])
+
+
 @dlt.transformer(
     name="player_archive_url",
-    data_from=player_profile,
+    data_from=_parent,
     write_disposition="replace",
 )
 def player_archive_url(profile):
     r = requests.get(f"{BASE}/player/{profile['username']}/games/archives")
     r.raise_for_status()
     for url in r.json().get("archives", []):
-        # dlt will inject _dlt_parent_id pointing at the parent's _dlt_id automatically.
-        yield {"archive_url": url}
+        # Transformer-emitted child tables in dlt 1.x don't auto-inject _dlt_parent_id;
+        # capture the parent's PK explicitly so the join is restorable downstream.
+        yield {"player_id": profile["player_id"], "archive_url": url}
 
 
 pipeline = dlt.pipeline(
@@ -37,4 +43,4 @@ pipeline = dlt.pipeline(
     destination=dlt.destinations.duckdb(str(REPO / "data" / "warehouse.duckdb")),
     dataset_name="bronze_chess",
 )
-print(pipeline.run([player_profile(["magnuscarlsen", "hikaru"]), player_archive_url]))
+print(pipeline.run([_parent, player_archive_url]))

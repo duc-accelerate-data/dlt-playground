@@ -27,11 +27,20 @@ class Event(BaseModel):
     user_id: str
     ts: str
     email: str | None = None
-    age: int | None = Field(default=None, ge=0, le=120)
+    # Out-of-range bounds enforced via add_map below — Pydantic + `discard_value` is not
+    # currently supported by dlt's normalizer for Pydantic columns.
+    age: int | None = None
 
 
 def hash_email(v):
     return hashlib.sha256(v.encode()).hexdigest()[:16] if v else None
+
+
+def bound_age(x):
+    age = x.get("age")
+    if isinstance(age, int) and not (0 <= age <= 120):
+        return {**x, "age": None}
+    return x
 
 
 @dlt.resource(
@@ -39,21 +48,20 @@ def hash_email(v):
     primary_key="event_id",
     write_disposition="merge",
     columns=Event,
-    schema_contract={"data_type": "discard_value"},
 )
-def events():
+def events_res():
     yield from RAW
 
 
-res = events()
+res = events_res()
 res.add_filter(lambda x: all(k in x and x[k] for k in REQUIRED))
 res.add_map(lambda x: {**x, "email": hash_email(x.get("email"))})
+res.add_map(bound_age)
 
 p = dlt.pipeline(
     pipeline_name="dq",
     destination=dlt.destinations.duckdb(str(WH)),
     dataset_name="bronze_dq",
-    dev_mode=True,
 )
 print(p.run(res))
 

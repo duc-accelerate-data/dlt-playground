@@ -7,7 +7,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
 import dlt, duckdb
-from shared.synthetic_source import products
+from shared.synthetic_source import products as products_res
 
 dest = dlt.destinations.duckdb(str(REPO / "data" / "warehouse.duckdb"))
 
@@ -26,9 +26,8 @@ pipeline = dlt.pipeline(
     pipeline_name="products_bronze",
     destination=dest,
     dataset_name="bronze_products",
-    dev_mode=True,
 )
-pipeline.run(products())
+pipeline.run(products_res())
 
 cols = pipeline.default_schema.get_table("products")["columns"]
 print("\n-- inferred column types --")

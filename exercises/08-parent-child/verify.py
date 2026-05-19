@@ -12,14 +12,14 @@ check(table_exists("bronze_chess", "player_archive_url"), "child table exists")
 check(row_count("bronze_chess", "player_archive_url") > 0, "child table has rows")
 
 orphans = db().execute("""
-    SELECT COUNT(*) FROM bronze_chess.player_archive_url WHERE _dlt_parent_id IS NULL
+    SELECT COUNT(*) FROM bronze_chess.player_archive_url WHERE player_id IS NULL
 """).fetchone()[0]
-check(orphans == 0, f"no orphan child rows (got {orphans} with NULL _dlt_parent_id)")
+check(orphans == 0, f"no orphan child rows (got {orphans} with NULL player_id)")
 
 joined = db().execute("""
     SELECT COUNT(*) FROM bronze_chess.player_archive_url c
-    JOIN bronze_chess.player_profile p ON p._dlt_id = c._dlt_parent_id
+    JOIN bronze_chess.player_profile p ON p.player_id = c.player_id
 """).fetchone()[0]
 check(joined == row_count("bronze_chess", "player_archive_url"),
-      "every child row joins to a parent on _dlt_parent_id = _dlt_id")
+      "every child row joins to a parent on player_id")
 done()

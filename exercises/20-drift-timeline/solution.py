@@ -26,7 +26,6 @@ def run_scenario(label: str, policy: dict):
         pipeline_name=f"drift_{label}",
         destination=dlt.destinations.duckdb(str(WH)),
         dataset_name=dataset,
-        dev_mode=True,
     )
     for v in (1, 2, 3, 4):
         raised = None
@@ -40,7 +39,7 @@ def run_scenario(label: str, policy: dict):
             rows = duckdb.connect(str(WH)).execute(f"SELECT COUNT(*) FROM {dataset}.people").fetchone()[0]
         except Exception:
             cols, rows = [], 0
-        print(f"  v{v}: raised={raised:<22}  rows={rows}  cols={cols}")
+        print(f"  v{v}: raised={str(raised):<22}  rows={rows}  cols={cols}")
 
 
 run_scenario("permissive", {"tables": "evolve", "columns": "evolve", "data_type": "evolve"})
