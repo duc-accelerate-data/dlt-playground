@@ -8,13 +8,11 @@ sys.path.insert(0, str(REPO))
 import dlt
 from dlt.sources.helpers import requests
 
-
-# TODO: turn this into a dlt resource named "country_stats" with replace disposition
+@dlt.resource(name="country_stats", write_disposition="replace")
 def country_stats(code: str = "US"):
     r = requests.get(f"https://api.chess.com/pub/country/{code}/players")
     r.raise_for_status()
-    # TODO yield a single row {"country": code, "player_count": <int>}
-    ...
+    yield {"country": code, "player_count": len(r.json().get('players', {}))}
 
 
 pipeline = dlt.pipeline(
