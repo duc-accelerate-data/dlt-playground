@@ -1,0 +1,21 @@
+{
+  "workbench.editorAssociations": {
+    "*.copilotmd": "vscode.markdown.preview.editor",
+    "file:/**/*.csv": "jupyter-data-wrangler",
+    "file:/**/*.parquet": "jupyter-data-wrangler",
+    "*.parquet": "duckdb.dataFileViewer",
+    "*.csv": "duckdb.dataFileViewer",
+    "*.tsv": "duckdb.dataFileViewer",
+    "*.xlsx": "duckdb.dataFileViewer"
+  },
+  "sqltools.connections": [
+    {
+      "name": "chess_bronze",
+      "accessMode": "Read Only",
+      "previewLimit": 50,
+      "driver": "DuckDB",
+      "databaseFilePath": "/Users/duc/Documents/accelerate_data/dlt-playground/chess_bronze.duckdb"
+    }
+  ],
+  "sqltools.useNodeRuntime": true
+}

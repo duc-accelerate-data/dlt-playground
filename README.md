@@ -74,19 +74,29 @@ Go in order — concepts build on each other. Each exercise should take 15–30 
 | 23 | [Streaming pagination + memory](exercises/23-streaming) | intermediate | generators, `chunk_size` |
 | 24 | [Data quality + PII redaction](exercises/24-data-quality) | intermediate | `add_filter`, `add_map`, Pydantic `columns=` |
 
-## Verifying your solutions
+## Verifying your work
 
-Each exercise ships a `verify.py` that runs the solution and asserts the resulting state:
+Each exercise ships **two** verifiers:
+
+| File | Runs | Use when |
+|---|---|---|
+| `verify.py`         | `solution.py` (reference)         | sanity-check the playground works |
+| `verify_starter.py` | `starter.py` (your edits)         | check your own attempt |
+
+Both run the same assertions; only the source file differs. The reference solution is never touched by either.
 
 ```bash
-# verify one
-python exercises/01-pipeline/verify.py
+# check your starter for one exercise
+python exercises/01-pipeline/verify_starter.py
 
-# verify everything
+# check your starters across every exercise (failures = TODOs still to fill)
+python verify_starter_all.py
+
+# check the reference solutions instead (should all pass)
 python verify_all.py
 
-# verify a subset
-python verify_all.py 04 05 14 20
+# subset by exercise number
+python verify_starter_all.py 04 05 14
 ```
 
 Exercises that need a GitHub PAT (06, 10, 11, 16) print `SKIP` when the token is missing.

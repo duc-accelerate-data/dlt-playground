@@ -44,10 +44,15 @@ def done() -> None:
 
 
 def run_solution(verify_file: str | Path) -> None:
-    """Execute the sibling solution.py so the verifier can inspect the result."""
-    sol = Path(verify_file).resolve().parent / "solution.py"
+    """Execute the sibling solution.py (default) — or starter.py if
+    EXERCISE_SOURCE=starter.py is set. Used by verify.py and verify_starter.py.
+    """
+    import os
+    source = os.environ.get("EXERCISE_SOURCE", "solution.py")
+    sol = Path(verify_file).resolve().parent / source
     if not sol.exists():
         raise FileNotFoundError(sol)
+    print(f"  (running {source})")
     runpy.run_path(str(sol), run_name="__exercise__")
 
 
