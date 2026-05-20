@@ -68,6 +68,9 @@ Go in order — concepts build on each other. Each exercise should take 15–30 
 | 14 | [Merge keys / dedup](exercises/14-merge-keys) | intermediate | `primary_key`, `merge_key`, `dedup_sort` |
 | 15 | [Destination capabilities](exercises/15-destination-caps) | intermediate | destination-specific behavior |
 | 16 | [Config providers + secrets](exercises/16-config-secrets) | intermediate | `dlt.secrets.value`, `section=` |
+| 17 | [Schema inference + variant columns](exercises/17-schema-inference) | intermediate | type inference, `__v_<type>` variant columns |
+| 18 | [Idempotency: when re-runs are safe](exercises/18-idempotency) | intermediate | merge vs append, `_dlt_id` row-identity foot-gun |
+| 19 | [Backfill: bounded windows + isolation](exercises/19-backfill) | intermediate | `initial_value`/`end_value`, `range_start`, no cursor persistence |
 | 20 | [Multi-version schema drift](exercises/20-drift-timeline) | intermediate | 4-version timeline + 3 contract policies |
 | 21 | [Retries + 429 / backoff](exercises/21-retries) | intermediate | `dlt.sources.helpers.requests.Client` |
 | 22 | [Partial failure + resume](exercises/22-partial-failure) | intermediate | atomic load packages, `_dlt_loads.status` |
