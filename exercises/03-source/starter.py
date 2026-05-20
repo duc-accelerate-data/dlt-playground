@@ -17,9 +17,12 @@ def country_stats(code: str = "US"):
     yield {"country": code, "player_count": len(r.json().get("players", []))}
 
 
-# TODO: build a @dlt.source named "chess" that returns both resources.
+@dlt.source(name="chess")
 def chess(usernames=("magnuscarlsen", "hikaru"), country="US"):
-    ...
+    return [
+        player_profile(usernames),
+        country_stats(country),
+    ]
 
 
 pipeline = dlt.pipeline(
