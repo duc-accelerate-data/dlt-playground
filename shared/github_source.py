@@ -51,7 +51,9 @@ def issues(
     org: str = dlt.config.value,
     repo: str = dlt.config.value,
     access_token: str = dlt.secrets.value,
-    updated_at=dlt.sources.incremental("updated_at", initial_value="1970-01-01T00:00:00Z"),
+    # GitHub's /issues endpoint returns [] for since=1970-01-01 (epoch is silently rejected).
+    # 2008 predates GitHub itself, so it's a safe "from the beginning" sentinel.
+    updated_at=dlt.sources.incremental("updated_at", initial_value="2008-01-01T00:00:00Z"),
 ) -> Iterator[dict]:
     """Cursor-based incremental on GitHub's server-side `updated_at`.
 
