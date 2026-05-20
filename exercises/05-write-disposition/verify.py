@@ -13,7 +13,7 @@ append  = row_count("wd_append",  "events")
 merge   = row_count("wd_merge",   "events")
 
 check(replace == 5,            f"replace -> 5 (got {replace})")
-check(append  > replace,       f"append > replace ({append} > {replace})")
+check(append  == 20,           f"append == 20 ({append} == 20")
 check(merge   <= append,       f"merge dedup'd to {merge} (≤ append {append})")
 check(merge   == 9,            f"merge -> 9 unique events (got {merge})")
 done()

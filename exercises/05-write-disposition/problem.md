@@ -16,11 +16,11 @@ Load the same `events` resource three times under three different dispositions a
 
 After loading day-1 + day-2 events twice (so 4 runs total):
 
-| Disposition | Expected row count |
-|-------------|--------------------|
-| `replace`   | 5 (only day-2 wins) |
-| `append`    | 18 (5 + 5 + 4 + 4) — depends, just print actual |
-| `merge` (primary_key=event_id) | 9 (5 unique day1 + 4 new day2, dedup'd) |
+| Disposition | Expected row count | Reasoning |
+|-------------|---|---|
+| `replace`   | 5  | drops + reloads each run; only day-2 survives |
+| `append`    | 20 | 5 rows × 4 runs, no dedup |
+| `merge` (primary_key=event_id) | 9 | distinct event_ids across day-1 (e1–e5) + day-2 new (e6–e9); day-2's duplicate of e3 collapses |
 
 Print the actuals — the *insight* is that the math falls out of the disposition rule.
 
