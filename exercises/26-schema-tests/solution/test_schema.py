@@ -116,8 +116,14 @@ def test_freeze_blocks_new_column():
             table_name="users",
             schema_contract={"columns": "freeze"},
         )
-    assert "DataValidation" in type(exc.value).__name__ or "DataValidation" in str(exc.value), \
-        f"expected DataValidationError, got {type(exc.value).__name__}: {exc.value}"
+    # dlt wraps the inner DataValidationError in PipelineStepFailed; walk the chain.
+    chain = [exc.value, getattr(exc.value, "exception", None),
+             getattr(exc.value, "__cause__", None), getattr(exc.value, "__context__", None)]
+    names = " ".join(type(e).__name__ for e in chain if e is not None)
+    msgs = " ".join(str(e) for e in chain if e is not None)
+    assert ("DataValidation" in names or "DataValidation" in msgs
+            or "freeze" in msgs.lower()), \
+        f"expected schema-contract violation, got {type(exc.value).__name__}: {exc.value}"
 
 
 # --- 3.16 anti-pattern guard rail: don't hard-code N -------------------------

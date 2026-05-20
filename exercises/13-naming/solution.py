@@ -33,8 +33,12 @@ def run_with_naming(naming: str, dataset: str):
     proc = subprocess.run(
         [sys.executable, "-c",
          CHILD.format(repo=str(REPO), wh=str(WH), name=naming, ds=dataset)],
-        env=env, capture_output=True, text=True, check=True,
+        env=env, capture_output=True, text=True,
     )
+    if proc.returncode != 0:
+        print("CHILD STDOUT:\n", proc.stdout)
+        print("CHILD STDERR:\n", proc.stderr, file=sys.stderr)
+        raise SystemExit(f"child for naming={naming} failed with rc={proc.returncode}")
     for line in proc.stdout.splitlines():
         if line.startswith("RESULT "):
             print(line[len("RESULT "):])

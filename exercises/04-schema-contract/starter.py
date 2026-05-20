@@ -16,10 +16,10 @@ def run_with_policy(policy: dict, dataset: str):
         dataset_name=dataset,
     )
     # day 1 — establishes the schema
-    pipeline.run(events(day=1))
+    # pipeline.run(events(day=1))
     # day 2 — introduces `experiment` column
     try:
-        pipeline.run(events(day=2), schema_contract=...)  # TODO: pass `policy`
+        pipeline.run(events(day=2))  # TODO: pass `policy`
     except Exception as e:
         print(f"[{dataset}] raised:", type(e).__name__, e)
     cols = pipeline.default_schema.get_table_columns("events").keys()
@@ -27,3 +27,6 @@ def run_with_policy(policy: dict, dataset: str):
 
 
 # TODO: call run_with_policy 3 times — evolve, freeze, discard_value.
+policy = {}
+dataset = 'bronze_events'
+run_with_policy(policy, dataset = dataset)

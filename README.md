@@ -73,6 +73,12 @@ Go in order — concepts build on each other. Each exercise should take 15–30 
 | 22 | [Partial failure + resume](exercises/22-partial-failure) | intermediate | atomic load packages, `_dlt_loads.status` |
 | 23 | [Streaming pagination + memory](exercises/23-streaming) | intermediate | generators, `chunk_size` |
 | 24 | [Data quality + PII redaction](exercises/24-data-quality) | intermediate | `add_filter`, `add_map`, Pydantic `columns=` |
+| 25 | [Unit tests](exercises/25-unit-tests) | intermediate | `pytest` + `responses`, resource-as-generator |
+| 26 | [Schema tests](exercises/26-schema-tests) | intermediate | `load_info.has_failed_jobs`, schema-freeze CI gate |
+| 27 | [Business data checks](exercises/27-business-checks) | intermediate | recon row-count + sum, orphan join, distribution |
+| 28 | [Modelling (SCD2 + JSON)](exercises/28-modelling) | intermediate | `strategy="scd2"`, JSON-typed columns |
+| 29 | [Documentation discipline](exercises/29-documentation) | intermediate | resource docstring + column descriptions + RUNBOOK |
+| 30 | [Evolving a live pipeline](exercises/30-evolving-pipeline) | intermediate | add resource, switch disposition, change PK, rename table |
 
 ## Verifying your work
 
@@ -100,6 +106,28 @@ python verify_starter_all.py 04 05 14
 ```
 
 Exercises that need a GitHub PAT (06, 10, 11, 16) print `SKIP` when the token is missing.
+
+## Resetting state
+
+When an exercise's state gets messy (wrong dataset names, leftover schemas from
+abandoned attempts, corrupted pipeline state), use `reset.py`:
+
+```bash
+# Hard reset — nuke the warehouse + every ~/.dlt/pipelines/* dir
+python reset.py
+
+# Reset only specific exercises (drops their schemas + pipeline dirs)
+python reset.py 04 13 28
+
+# Reset a range
+python reset.py 20-29
+
+# See what each exercise owns
+python reset.py --list
+```
+
+`verify_all.py` and `verify_starter_all.py` call `reset.py` automatically for the
+exercises they're about to run, so you don't normally need to invoke it by hand.
 
 ## Industry best-practice cheat sheet
 

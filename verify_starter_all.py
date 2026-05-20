@@ -17,6 +17,9 @@ EX_DIR = REPO / "exercises"
 def main(filters: list[str]) -> int:
     exercises = sorted(d for d in EX_DIR.iterdir() if d.is_dir())
     failures: list[str] = []
+    targets = [ex.name.split("-", 1)[0] for ex in exercises
+               if not filters or any(ex.name.startswith(f) for f in filters)]
+    subprocess.run([sys.executable, str(REPO / "reset.py"), *targets], cwd=REPO)
     for ex in exercises:
         if filters and not any(ex.name.startswith(f) for f in filters):
             continue
