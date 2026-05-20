@@ -168,7 +168,7 @@ Sources: dlt-hub docs (1.26+), dlt-hub `verified-sources` repo, Fivetran connect
 - Full reload acceptable (small reference data) → `replace`.
 
 ### Normalize / control columns
-- `_dlt_id` is content-addressable when no PK is declared — duplicate input row → same `_dlt_id`.
+- `_dlt_id` is **random per yield** when no PK is declared — duplicate input rows get **different** `_dlt_id`s and both land. With `primary_key`, `_dlt_id` is derived from the PK columns, which is what makes `merge` upsert deterministic.
 - `_dlt_parent_id` is FK from child → parent's `_dlt_id`. Never override it.
 - Freezing `tables` on first run is a foot-gun — let dlt create child tables once, *then* tighten.
 

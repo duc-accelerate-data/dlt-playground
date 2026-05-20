@@ -5,7 +5,7 @@ dlt's pipeline is **extract → normalize → load**. The normalize stage:
 - Flattens nested JSON (`{"chess_blitz":{"last":{"rating":2879}}}` → `chess_blitz__last__rating`).
 - Splits nested arrays into child tables linked via `_dlt_parent_id`.
 - Injects three control columns into every table:
-  - `_dlt_id` — row identity (content hash unless `primary_key` is declared).
+  - `_dlt_id` — row identity. Random per yield by default; derived deterministically from `primary_key` columns when one is declared.
   - `_dlt_parent_id` — FK pointing at the parent row's `_dlt_id` (child tables only).
   - `_dlt_load_id` — id of the load package that wrote the row.
 
