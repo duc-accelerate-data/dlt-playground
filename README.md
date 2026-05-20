@@ -1,22 +1,25 @@
 # dlt Playground — Beginner → Intermediate
 
-A realistic, industry-shaped playground for learning [dlt](https://dlthub.com) (data load tool) end-to-end.
-You will build a production-style ingestion layer (bronze) over four sources, hit real schema-drift, credential, and incremental-cursor problems, and graduate with the muscle memory to ship a `dlt.pipeline()` in your real job.
+A realistic, industry-shaped playground for learning [dlt](https://dlthub.com) (data load tool) end-to-end — **focused on REST / API ingestion**, which is where the hard parts of real pipelines live.
 
 ## Why this exists
 
-dlt tutorials show you `dlt.pipeline(...).run([{"id": 1}])`. Real life shows you a flaky REST API, a Postgres source with bad timezones, three teams arguing about merge strategy, and a Slack thread asking why bronze re-loaded 80M rows last night. This playground stages the second scenario.
+dlt tutorials show you `dlt.pipeline(...).run([{"id": 1}])`. Real life shows you a flaky REST API with 429s, a vendor that quietly added a field last night, three teams arguing about merge strategy, and a Slack thread asking why bronze re-loaded 80M rows. This playground stages the second scenario.
+
+Database sources (Postgres, MySQL, SQL Server) are well-served by dlt's `sql_database` verified source and feel a lot like ORMs — they're not the interesting practice surface. Every exercise here is about **HTTP / JSON / pagination / cursors / auth / retries**, which is what you spend 80% of your time on in production.
 
 ## Sources
 
-| Source             | Auth      | Shape           | Why it's here                                |
-| ------------------ | --------- | --------------- | -------------------------------------------- |
-| **Chess.com REST** | none      | nested JSON     | canonical dlt example — verified-source feel |
-| **GitHub REST**    | PAT       | paginated, rate-limited | real auth + cursor + 304 handling     |
-| **Synthetic CSV/JSONL** | none | controlled drift | drives schema-contract + dedup exercises    |
-| **Postgres**       | user/pwd  | SQL incremental | CDC-style `updated_at` cursor + merge       |
+All sources are **HTTP-shaped** — REST APIs or HTTP-served fixtures. No databases.
 
-All destinations are **DuckDB** (`data/warehouse.duckdb`) — single dev-friendly target so the brain stays on dlt, not infra.
+| Source             | Auth      | Shape                       | Why it's here                                |
+| ------------------ | --------- | --------------------------- | -------------------------------------------- |
+| **Chess.com REST** | none      | nested JSON, archive index  | canonical dlt example — verified-source feel |
+| **GitHub REST**    | PAT       | paginated, rate-limited, ETag | real auth + cursor + 304 + retry           |
+| **Synthetic JSONL/CSV fixtures** | none | controlled drift, dirty types | stand-ins for paginated API responses; drive schema-contract, dedup, and DQ exercises |
+| **Mocked HTTP endpoints** (in `tests`) | none | 429/503/401 | retry, backoff, and partial-failure exercises |
+
+Destination is always **DuckDB** (`data/warehouse.duckdb`) — single dev-friendly target so the brain stays on dlt's API-resource mental model, not infra.
 
 ## Quick start
 
@@ -25,16 +28,13 @@ All destinations are **DuckDB** (`data/warehouse.duckdb`) — single dev-friendl
 python -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 
-# 2. Optional Postgres source (only needed for ex 13+)
-docker compose up -d postgres
-# seeds data/postgres-seed/*.sql automatically
-
-# 3. Copy env template and fill in GITHUB_TOKEN if you want exercises 04, 06
+# 2. Copy env template and fill in your GitHub PAT for exercises 06, 10, 11, 16
 cp .env.example .env
 
-# 4. Run any exercise
+# 3. Run any exercise
 python exercises/01-pipeline/starter.py     # follow problem.md, edit starter.py
 python exercises/01-pipeline/solution.py    # peek if stuck
+python exercises/01-pipeline/verify.py      # check your work
 ```
 
 ## How to use this repo
@@ -138,13 +138,11 @@ dlt-playground/
 ├── README.md                  ← you are here
 ├── pyproject.toml             ← deps
 ├── .env.example
-├── docker-compose.yml         ← optional Postgres source
 ├── .dlt/
 │   ├── config.toml            ← non-secret defaults
 │   └── secrets.toml.example
 ├── data/
-│   ├── synthetic/             ← CSV / JSONL fixtures with controlled drift
-│   ├── postgres-seed/         ← SQL seed for docker postgres
+│   ├── synthetic/             ← JSONL / CSV fixtures (paginated-API stand-ins) with controlled drift
 │   └── warehouse.duckdb       ← created at runtime (gitignored)
 ├── shared/
 │   ├── chess_source.py

@@ -1,11 +1,12 @@
 [project]
 name = "dlt-playground"
 version = "0.1.0"
-description = "Beginner-to-intermediate dlt exercises over realistic industry data"
+description = "Beginner-to-intermediate dlt exercises focused on REST/API ingestion patterns"
 requires-python = ">=3.11"
 dependencies = [
-    "dlt[duckdb,postgres]>=1.21.0",
+    "dlt[duckdb]>=1.21.0",
     "requests>=2.32",
+    "tenacity>=9.0",
     "pydantic>=2.7",
     "python-dotenv>=1.0",
 ]
