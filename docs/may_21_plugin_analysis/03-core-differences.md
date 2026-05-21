@@ -1,70 +1,70 @@
-# Core Differences — Ordered by Impact
+# What Actually Changed — ordered by how much it matters
 
-## 1. Hooks removed
+## 1. The auto-start helper is gone
 
-The `SessionStart` bash hook that auto-injected `classifying-data-intents` + `vd-domain.yml` is **gone**. Classification now flows through the coordinator's startup logic and the new implementation-plan instead of runtime context injection.
+The startup script that used to paste classification instructions and the domain configuration into every new session has been removed. Classification now happens through the coordinator's own instructions and through plan steps — not through runtime injection.
 
-**Implication for Studio:** anything that relied on `vd-domain.yml` being auto-loaded must inject domain context another way — likely through the OpenHands adapter prompt.
+**What this means for Studio:** anything that relied on the domain configuration being automatically loaded must now feed that context in some other way — most likely through the prompt that Studio sends to its runtime.
 
-## 2. `lib/` removed (~50 files)
+## 2. The supporting library is gone (about 50 files)
 
-Deleted from the plugin:
-- All JSON-schema contracts (`reviewer-verdict.schema.json`, `readiness.schema.json`, `artifact-evidence`, etc.)
-- The 18 per-skill error-code catalogues
-- The 6 readiness checklists
-- The entire `templates/{duckdb, fabric}/` scaffolding tree
+Deleted from the toolkit:
+- All JSON schema definitions (reviewer verdicts, readiness reports, test specs, and others).
+- The 18 per-task error-code catalogues.
+- The six readiness checklists for each quality gate.
+- The entire per-target template tree for DuckDB and Fabric workspaces.
 
-Replaced by a slimmer `_shared/references/` (conventions + playbooks + patterns) and `_shared/templates/` (6 generic templates).
+In their place: a slimmer shared folder with conventions, playbooks, and patterns, plus a small set of generic templates.
 
-The plugin no longer ships per-target scaffolding files — those presumably move into the `scaffolding-*-workspace` skills themselves or onto the host runtime.
+The toolkit no longer ships per-target starter files. Those have presumably moved into the workspace-setup tasks themselves, or onto the host environment that runs the toolkit.
 
-## 3. `scripts/` removed
+## 3. Helper scripts are gone
 
-Fabric-notebook bash helpers and Python manifest-validation scripts are gone. Manifest validation likely moved to repo-level CI.
+The bash and Python utilities for Fabric notebooks and manifest validation are gone. Manifest validation has probably moved to the repository's CI workflows.
 
-## 4. New first-class artifact: `implementation-plan.md`
+## 4. A new central artefact: the step-by-step plan
 
-**Biggest runtime shift.** Workflow tracking moved from "phase tables embedded in `design.md`" to a separate plan file with explicit step status.
+**This is the biggest change in how the toolkit runs.** Work tracking moved from "phase tables embedded in the design doc" to a separate plan file with explicit per-step status.
 
-Resume semantics:
-- **Old:** scan `design.md` progress markers, infer current phase.
-- **New:** read `implementation-plan.md`, find first step where `status != done`.
+How "resume from where I left off" works:
+- **Before:** scan progress markers in the design document, then guess the current phase.
+- **Now:** read the plan, find the first step whose status is not "done".
 
-## 5. Plugin repackaged as a variant
+## 5. The toolkit is now packaged as a variant
 
-| Field | Old | New |
+| Field | Older | Newer |
 |---|---|---|
-| name | `vibedata-data-engineering` | `vibedata-data-engineering-med` |
-| version | `5.8.0` | `0.1.3` |
+| Name | `vibedata-data-engineering` | `vibedata-data-engineering-med` |
+| Version | `5.8.0` | `0.1.3` |
 
-The new `_shared/references/patterns/{dbt,dlt}-patterns.md` files carry an explicit `variant: med` tag, signaling a family of variants (low/med/high) sharing skills + agents but differing in pattern depth.
+The two new pattern files (one for dbt, one for dlt) carry an explicit `variant: med` tag. The toolkit is being set up as a family — low, medium, high — that share the same automated tasks and assistant roles but differ in how deep the patterns guidance goes.
 
-## 6. Six-phase vocabulary demoted
+## 6. The "six phases" idea was demoted
 
-Old description and agent prose led with "six-phase gated workflow." New description doesn't mention phases at all. The coordinator's "Workflow Contract" still lists the same six stage names, but treats them as user-visible labels — execution order is governed by the implementation-plan, not by hard phase numbers.
+The old description and the coordinator's prose led with "six-phase gated workflow". The new description doesn't mention phases at all. The same six stage names still appear in the coordinator's workflow contract, but only as user-visible labels. The order in which work happens is now driven by the step-by-step plan, not by hard-coded phase numbers.
 
-## 7. Eval instrumentation baked in
+## 7. Evaluation instrumentation is built in
 
-Coordinator now writes `.skill-ran/<skill>` sentinels when `.eval-run/` or `.opencode/` is present, replacing inferential eval probing.
+The coordinator now drops a small marker file every time it loads a task, but only when an evaluation workspace is present. That replaces the earlier need to infer from indirect signals whether the right task fired.
 
-## 8. Design-doc schema hardened
+## 8. The design document has a stricter shape
 
-`design.md` must now include exactly-named sections:
-- `Model Inventory` (dbt) / `Pipeline Inventory` (dlt)
-- `Gate Status` with `✅` markers
+The design doc must now include sections with exact, literal names:
+- `Model Inventory` (for dbt work) or `Pipeline Inventory` (for dlt work).
+- `Gate Status` with checkmarks against each gate.
 
-Old version was looser on doc structure.
+The older toolkit was looser about document structure.
 
-## 9. Agents and skills unchanged in name and count
+## 9. Assistant roles and automated tasks are unchanged in name and count
 
-- 9 agents (same filenames including `opencode-data-engineer.md`)
-- 29 skills (same names)
+- Same 9 roles, same filenames.
+- Same 29 tasks, same names.
 
-All structural change concentrates in: coordinator prompt rewrite, manifest rebrand, hooks removal, lib removal, and the new `_shared/` + implementation-plan artifact.
+All the structural change is concentrated in: the coordinator's rewritten prompt, the rebranded manifest, the removed startup helper, the removed library, and the new shared folder plus plan file.
 
 ---
 
 ## Open questions
 
-- Where did the deleted `lib/contracts/*.schema.json` validation move to? The reviewer-verdict JSON shape is still mandated by coordinator prose, but no schema file ships with the plugin anymore. Possibilities: inlined into individual SKILL.md files, enforced by host code in Studio, or dropped entirely.
-- Are the `low` / `high` variant siblings already shipped elsewhere, or just planned?
+- Where did the deleted contract schemas go? The reviewer-verdict structure is still required by the coordinator's prose, but no schema file ships with the toolkit anymore. Three possibilities: the requirement was inlined into each task's instructions, enforced by Studio's own code, or quietly dropped.
+- Are the "low" and "high" sibling variants already shipped somewhere, or just planned?

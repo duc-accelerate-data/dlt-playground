@@ -1,123 +1,113 @@
-# Old Version — commit `e2a5a7b`, v5.8.0
+# Older Version — snapshot `e2a5a7b`, version 5.8.0
 
 [Source tree](https://github.com/accelerate-data/vibedata-data-engineering/tree/e2a5a7bc85dc87147d70e0a1e9c1fe088864188c/plugins/vibedata-data-engineering)
 
-## Manifest
+## What the toolkit says about itself
 
-`.claude-plugin/plugin.json`:
-- name: `vibedata-data-engineering`
-- version: `5.8.0`
-- description leads with the **six-phase coordinator flow**: Intake → Workspace → Requirements → Design → Build → Publish.
+The manifest file (`.claude-plugin/plugin.json`) names the toolkit `vibedata-data-engineering` at version `5.8.0`. Its description leads with the **six-phase coordinator flow**: Intake → Workspace → Requirements → Design → Build → Publish. That ordering is the headline feature.
 
-## Agents (`agents/`, 9 files)
+## Assistant roles (9 of them)
 
-| File | Role |
+These are the specialised assistant prompts the toolkit ships with.
+
+| Role | What it does |
 |---|---|
-| `data-engineer.md` | Primary coordinator. Runs the six-phase gated workflow, dispatches reviewers, enforces paste-verbatim verdict-JSON contract. |
-| `opencode-data-engineer.md` | OpenCode runtime variant of the coordinator. |
-| `code-reviewer.md` | Code gate reviewer. |
-| `design-reviewer.md` | Design gate reviewer. |
-| `requirements-reviewer.md` | Requirements gate reviewer. |
-| `data-test-writer.md` | Writes dbt+dlt data tests. |
-| `data-test-reviewer.md` | Reviews data tests. |
-| `unit-test-writer.md` | Writes unit tests. |
-| `unit-test-reviewer.md` | Reviews unit tests. |
+| Data engineer (coordinator) | The lead. Runs the six-phase flow, calls in reviewers, and pastes their pass/fail verdicts in a strict structured format. |
+| Data engineer (OpenCode variant) | The same coordinator, adapted to run under a different host environment. |
+| Code reviewer | Reviews code at the code gate. |
+| Design reviewer | Reviews designs at the design gate. |
+| Requirements reviewer | Reviews requirements at the requirements gate. |
+| Data-test writer | Writes data-quality tests (for dbt and dlt). |
+| Data-test reviewer | Reviews those data-quality tests. |
+| Unit-test writer | Writes unit tests. |
+| Unit-test reviewer | Reviews unit tests. |
 
-## Skills (`skills/`, 29 SKILL.md files)
+## Automated tasks (29 of them)
 
-Intake & scoping:
-- `classifying-data-intents`
-- `identifying-issue-scope`
-- `filing-deferred-issue`
-- `managing-intent-design-docs`
+Each task is a small instruction file the coordinator can call. Grouped by what they do:
 
-Workspace scaffolding:
-- `scaffolding-duckdb-workspace`
-- `scaffolding-fabric-workspace`
+**Intake and scoping**
+- Classify what the user is asking for (a "data intent").
+- Identify the scope of an issue.
+- File anything out of scope as a deferred issue.
+- Maintain the intent's design documents.
 
-Source discovery & modelling:
-- `discovering-source-schema`
-- `profiling-source-data`
-- `applying-medallion-data-modelling`
+**Workspace setup**
+- Set up a DuckDB-based workspace.
+- Set up a Microsoft Fabric workspace.
 
-Generation:
-- `generating-dbt-model`
-- `generating-dlt-pipeline`
-- `pinning-dlt-schema`
+**Source discovery and modelling**
+- Discover what a data source contains (its schema).
+- Profile the data inside a source.
+- Apply medallion modelling (bronze/silver/gold layering).
 
-Sandbox execution (6):
-- `running-dbt-in-sandbox`
-- `running-dbt-in-duckdb-sandbox`
-- `running-dbt-in-fabric-sandbox`
-- `running-dlt-in-sandbox`
-- `running-dlt-in-duckdb-sandbox`
-- `running-dlt-in-fabric-sandbox`
+**Code generation**
+- Generate a dbt model.
+- Generate a dlt ingestion pipeline.
+- Pin the schema of a dlt pipeline (lock it down).
 
-Fabric-specific:
-- `authoring-fabric-notebook`
-- `validating-fabric-notebook`
+**Running things in a sandbox** (six tasks: a dispatcher plus four target-specific runners for dbt and dlt against DuckDB and Fabric).
 
-Testing:
-- `dbt-unit-testing`
-- `dlt-unit-testing`
-- `ingestion-data-testing`
-- `validating-fixture-replay`
-- `validating-golden-data`
+**Fabric-specific**
+- Author a Fabric notebook.
+- Validate a Fabric notebook.
 
-Documentation & publish:
-- `documenting-dbt-models`
-- `documenting-dlt-pipelines`
-- `publishing-dbt-contracts`
-- `evaluating-dbt-project`
-- `evaluating-dlt-pipeline`
+**Testing**
+- Unit tests for dbt and for dlt.
+- Data-quality tests for ingestion.
+- Replay a recorded fixture and check the result.
+- Compare against golden (known-good) data.
 
-Shared refs live flat under `skills/_shared/references/`.
+**Documentation and publish**
+- Document dbt models and dlt pipelines.
+- Publish dbt data contracts.
+- Evaluate the dbt project and the dlt pipeline.
 
-## Hooks (`hooks/`)
+A shared `references` folder under the automated-tasks directory holds reference material the tasks can link to.
 
-- `hooks.json` registers a `SessionStart` hook on `startup | clear | compact`.
-- `session-start` bash script:
-  - Inlines `classifying-data-intents/SKILL.md` into the session as `<EXTREMELY_IMPORTANT>` context.
-  - If `vd-domain.yml` exists in cwd, inlines it as `<DOMAIN_CONTEXT>` so the coordinator never asks the user for destination/workspace.
-  - Emits runtime-specific JSON (Cursor vs Claude vs Copilot).
+## The auto-start helper
 
-## `lib/` — runtime contracts and lookup tables
+The toolkit registers a small script that runs whenever a new session begins (and on reset or compact). The script:
 
-- `contracts/*.schema.json` — JSON schemas: `artifact-evidence`, `data-test-recommendation`, `readiness`, `reviewer-verdict`, `scaffold-result`, `test-spec`.
-- `error-codes/*.md` — per-skill error-code catalogues (18 files).
-- `readiness/*.md` — gate-readiness checklists: `design`, `build`, `golden`, `profile`, `publish`, `test-gen`.
-- `templates/{_shared, duckdb, fabric}/` — workspace scaffolding: dbt project / profiles / sources, dlt `pipeline.py` + `config.toml`, Fabric notebook `.ipynb` + `.platform`.
+- Pastes the classification instructions straight into the session as high-priority context.
+- If the current folder has a domain configuration file (`vd-domain.yml`), pastes that in too — so the coordinator never has to ask the user where to send the data.
+- Emits the right JSON shape for whichever host environment is in use.
 
-## `scripts/`
+## The supporting library
 
-Bash + Python:
-- `author-fabric-notebook.sh`
-- `validate-fabric-notebook.sh`
-- `check_plugin_version_bump.py`
-- `validate_plugin_manifests.py`
+A `lib/` folder ships a lot of supporting material:
 
-## Flow
+- **Contracts** — JSON schema files that define the structure of various artefacts (reviewer verdicts, readiness reports, test specs, and so on).
+- **Error-code catalogues** — one Markdown file per automated task, listing the named errors that task can raise (18 files).
+- **Readiness checklists** — six files, one per quality gate (design, build, golden-data check, profiling, publishing, test generation).
+- **Templates** — starter files for new workspaces: dbt project layout, profiles, sources, a dlt pipeline file with its config, a Fabric notebook, organised under per-target folders.
+
+## Helper scripts
+
+A small `scripts/` folder with bash and Python utilities for authoring and validating Fabric notebooks, and for checking that the toolkit's own manifest files are valid and properly version-bumped.
+
+## How it all flows
 
 ```
-SessionStart hook ──► injects classifying-data-intents + vd-domain.yml
+Auto-start helper ──► pastes in classification instructions + domain config
         │
         ▼
-[Phase 0 Intake]       classifying-data-intents → identifying-issue-scope?
-                          (mixed/ambiguous → filing-deferred-issue or AskUserQuestion)
+[Phase 0 Intake]       classify the user's request → identify scope?
+                       (if mixed or ambiguous, file a deferred issue or ask the user)
         ▼
-[Phase 1 Workspace]    scaffolding-{duckdb | fabric}-workspace
+[Phase 1 Workspace]    scaffold a DuckDB or Fabric workspace
         ▼
-[Phase 2 Requirements] managing-intent-design-docs (intent.md) → requirements-reviewer → user "approved"
+[Phase 2 Requirements] write intent.md → requirements reviewer → wait for user "approved"
         ▼
-[Phase 3 Design]       managing-intent-design-docs (design.md) → design-reviewer
+[Phase 3 Design]       write design.md → design reviewer
         ▼
 [Phase 4 Build]
-   ├─ ingestion:      discovering-source-schema → profiling-source-data → generating-dlt-pipeline
-   │                  → running-dlt-in-* → pinning-dlt-schema → ingestion-data-testing
-   └─ transformation: applying-medallion-data-modelling → generating-dbt-model
-                      → running-dbt-in-* → dbt-unit-testing
-   reviewers: unit-test-writer/reviewer, data-test-writer/reviewer, code-reviewer
+   ├─ ingestion:        discover schema → profile source → generate dlt pipeline
+   │                    → run in sandbox → pin schema → run ingestion data tests
+   └─ transformation:   apply medallion modelling → generate dbt model
+                        → run in sandbox → run dbt unit tests
+   plus: unit-test writer/reviewer, data-test writer/reviewer, code reviewer
         ▼
-[Phase 5 Publish]      documenting-{dbt-models | dlt-pipelines} → publishing-dbt-contracts
-                       → evaluating-{dbt-project | dlt-pipeline}
+[Phase 5 Publish]      document dbt models + dlt pipelines → publish dbt contracts
+                       → evaluate the dbt project and the dlt pipeline
 ```

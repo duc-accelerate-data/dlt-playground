@@ -1,31 +1,31 @@
-# `vibedata-data-engineering` Plugin Analysis — May 21, 2026
+# Data-Engineering Toolkit Analysis — May 21, 2026
 
-Comparison of two versions of the `vibedata-data-engineering` Claude Code plugin used by the Studio app to drive intent classification + dlt ingestion + dbt transformation through its OpenHands runtime.
+This is a comparison of two versions of the toolkit that the Studio app uses to automate its data work. The toolkit is a bundle of automated tasks the app calls out to: figure out what a user wants, pull data in (ingestion with dlt), and shape that data (transformation with dbt).
 
-## Sources
+## What we compared
 
-| Version | Ref | Manifest name | Version |
+| Version | Where it lives | Internal name | Version number |
 |---|---|---|---|
-| **Old** | [`e2a5a7bc`](https://github.com/accelerate-data/vibedata-data-engineering/tree/e2a5a7bc85dc87147d70e0a1e9c1fe088864188c/plugins/vibedata-data-engineering) | `vibedata-data-engineering` | `5.8.0` |
-| **New** | [`main`](https://github.com/accelerate-data/vibedata-data-engineering/tree/main/plugins/vibedata-data-engineering) | `vibedata-data-engineering-med` | `0.1.3` |
+| **Older** | [an earlier snapshot](https://github.com/accelerate-data/vibedata-data-engineering/tree/e2a5a7bc85dc87147d70e0a1e9c1fe088864188c/plugins/vibedata-data-engineering) | `vibedata-data-engineering` | `5.8.0` |
+| **Newer** | [today's main branch](https://github.com/accelerate-data/vibedata-data-engineering/tree/main/plugins/vibedata-data-engineering) | `vibedata-data-engineering-med` | `0.1.3` |
 
-Both live at `plugins/vibedata-data-engineering/` inside `accelerate-data/vd-data-engineering`.
+Both live in the same place inside the team's `vd-data-engineering` repository.
 
-## Contents
+## What's in this folder
 
-- [`01-old-version.md`](./01-old-version.md) — Old (`e2a5a7b`, v5.8.0): agents, skills, hooks, lib, scripts, and flow diagram.
-- [`02-new-version.md`](./02-new-version.md) — New (`main`, v0.1.3): same inventory + the new `implementation-plan.md` runtime model.
-- [`03-core-differences.md`](./03-core-differences.md) — Diff focused on architectural shifts, ordered by impact.
-- [`04-diagrams.md`](./04-diagrams.md) — Side-by-side Mermaid flowcharts.
+- [`01-old-version.md`](./01-old-version.md) — What the older toolkit contains: its automated jobs, helper scripts, and built-in startup behavior.
+- [`02-new-version.md`](./02-new-version.md) — Same inventory for the newer toolkit, plus the new step-by-step plan file that drives it.
+- [`03-core-differences.md`](./03-core-differences.md) — What actually changed, ordered by how much it matters.
+- [`04-diagrams.md`](./04-diagrams.md) — Two flowcharts you can read side by side.
 
-## TL;DR
+## The short version
 
-The new version is a **runtime model rewrite**, not a feature change:
+The newer toolkit is a rewrite of *how the work flows*, not a rewrite of what it can do:
 
-1. **Hooks deleted** — `SessionStart` bash hook that injected classification + `vd-domain.yml` is gone.
-2. **`lib/` deleted** — ~50 files (JSON-schema contracts, error-code catalogues, readiness checklists, per-target templates) removed; replaced by a slimmer `_shared/`.
-3. **`scripts/` deleted.**
-4. **New artifact: `implementation-plan.md`** — explicit per-step status ledger replaces inferred progress tracking in `design.md`. This is the biggest runtime shift.
-5. **Plugin repackaged as a variant** — name suffixed `-med`, version reset `5.8.0` → `0.1.3`. Signals a planned low/med/high family sharing skills+agents.
-6. **Six-phase vocabulary demoted** — phase names survive as labels; execution order is now plan-driven.
-7. **Agents (9) and skills (29) unchanged in count and naming.** All structural change concentrates in the coordinator prompt, hooks/lib removal, and the new `_shared/` + plan artifact.
+1. **The auto-start helper was removed.** The old toolkit had a small script that ran every time a session began. It pasted in classification instructions and the domain configuration so the assistant always knew where to put things. That script is gone.
+2. **A large library of supporting files was removed.** Around 50 files — schema definitions, error-code lists, readiness checklists, project templates — were deleted. A smaller shared folder replaces them.
+3. **Helper scripts were removed** (the small Python and bash utilities for validating notebooks and manifest files).
+4. **A new file drives the work: a step-by-step plan.** Every task now lives as a row in this plan with an explicit status. Before, the assistant had to read a design document and guess what was done. Now it just reads the plan.
+5. **The toolkit is now packaged as one of a family.** The name gained a `-med` suffix (for "medium") and the version was reset, hinting at "low" and "high" siblings that share the same automated jobs but offer different depth of guidance.
+6. **The six-phase vocabulary was downplayed.** The phase names (Intake, Workspace, Requirements, Design, Build, Publish) still appear as labels, but the plan file decides what runs next — not a hard-coded phase order.
+7. **The lineup of automated jobs is unchanged.** Same nine assistant roles, same 29 automated tasks, same filenames. All the real change is in the coordinator's instructions, the removed startup helper and library, and the new shared folder plus plan file.

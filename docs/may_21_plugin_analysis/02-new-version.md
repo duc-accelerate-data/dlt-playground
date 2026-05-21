@@ -1,90 +1,89 @@
-# New Version — `main`, v0.1.3
+# Newer Version — `main`, version 0.1.3
 
 [Source tree](https://github.com/accelerate-data/vibedata-data-engineering/tree/main/plugins/vibedata-data-engineering)
 
-## Manifest
+## What the toolkit says about itself
 
-`.claude-plugin/plugin.json`:
-- name: **`vibedata-data-engineering-med`** (renamed)
-- version: **`0.1.3`** (reset from `5.8.0`)
-- description: *"med variant: balanced practitioner-pattern footprint for common production work."*
+The manifest (`.claude-plugin/plugin.json`) shows two notable changes:
 
-The plugin is now one variant in a family (`med`), implying `low` / `high` siblings exist or are planned.
+- The name gained a `-med` suffix: **`vibedata-data-engineering-med`**.
+- The version was reset from `5.8.0` to **`0.1.3`**.
+- The description now reads: *"med variant: balanced practitioner-pattern footprint for common production work."*
 
-## Agents (`agents/`, 9 files)
+The toolkit is being packaged as one of a family. "Low" and "high" siblings probably exist or are planned.
 
-Same 9 filenames as old version. The coordinator (`data-engineer.md`) was substantively rewritten:
+## Assistant roles
 
-- **"Six-phase" language demoted** from the agent body — still listed in the workflow contract as plain text stage names (Intake, Workspace, Requirements, Design, Build, Publish), but no longer the primary execution model.
-- **New first-class artifact: `implementation-plan.md`**, generated post-design by `managing-intent-design-docs`. Each step carries:
-  - `step_id`
-  - `goal`
-  - `skill_to_invoke`
-  - `status`
-  - `artifacts_touched`
-  - `notes`
+Same nine role files as before, with the same filenames. The coordinator role (the data engineer) was substantially rewritten:
 
-  The plan is the **resume source of truth** instead of the old "scan progress table in `design.md`" approach.
+- **The "six-phase" framing was demoted** in the body of the coordinator's instructions. The same six stage names still appear in a workflow contract as plain labels, but they are no longer the main thing driving execution.
 
-- **New eval-instrumentation contract**: in workspaces containing `.eval-run/` or `.opencode/`, the coordinator must `touch .skill-ran/<skill-name>` sentinels after loading each skill — used by the eval harness to verify real skills were loaded.
+- **A new central artefact: a step-by-step plan file** (`implementation-plan.md`), produced right after the design step. Every step in the plan has:
+  - an ID,
+  - a goal,
+  - the name of the automated task that should run,
+  - a status,
+  - the artefacts it touches,
+  - free-text notes.
 
-- **Explicit `design.md` schema**: mandatory `Model Inventory` (dbt) / `Pipeline Inventory` (dlt) sections, plus a `Gate Status` section with visible `✅` markers.
+  The plan is now the **single place the coordinator looks to figure out where it left off**. Before, it had to scan progress markers buried in the design document.
 
-- **OpenCode fallback documented inline**: if no `Skill` tool is available, read SKILL.md from `.opencode/plugins/...` or `plugins/...`.
+- **A new contract for the eval harness.** In workspaces that include an evaluation marker folder, the coordinator must drop a small empty marker file every time it loads a task. The evaluation system can then check that the right tasks actually fired.
 
-## Skills
+- **The design document has a stricter shape.** It must include a literally-named section (`Model Inventory` for dbt work or `Pipeline Inventory` for dlt work) and a `Gate Status` section with visible checkmarks.
 
-Same **29 skill directories, same names**. Frontmatter tightened, e.g. `classifying-data-intents` now keys off an implementation-plan step:
+- **A fallback for environments that lack the normal task-loading mechanism** is documented inline: read the task's instruction file directly from a known path.
 
-> *"Use for a current implementation-plan step whose `skill_to_invoke` is `classifying-data-intents`"*
+## Automated tasks
 
-— rather than "always run at session start".
+Same 29 task folders, same names. Their headers (the brief descriptions that decide when they fire) were tightened. For example, the classification task now says it should run when the current plan step asks for it — not "always at the start of every session" as before.
 
-## Hooks
+## Auto-start helper
 
-**Deleted entirely.** No `hooks/` directory, no `SessionStart` injection. Classification is now driven from inside the coordinator agent prompt + plan steps, not from a runtime hook.
+**Removed completely.** No startup script, no auto-pasted context. Classification is now invoked from inside the coordinator's instructions and through plan steps, instead of being injected by a runtime hook.
 
-## `lib/`
+## Supporting library
 
-**Deleted entirely.** All contract schemas, error-code catalogues, readiness checklists, and template files are gone from the plugin.
+**Removed completely.** All the contract schemas, error-code catalogues, readiness checklists, and project templates are gone from the toolkit.
 
-## `scripts/`
+## Helper scripts
 
-**Deleted entirely.**
+**Removed completely.**
 
-## New `_shared/` — replaces old `skills/_shared/` + `lib/templates/` + `lib/readiness/`
+## New shared folder
 
-- `_shared/references/INDEX.md` — single discoverable index.
-- `_shared/references/conventions/` (7 files) — style guides extracted from old flat refs: `git-workflow`, `logging-policy`, `model-naming`, `runtime-audit-columns`, `skill-style`, `sql-style`, `yaml-style`.
-- `_shared/references/playbooks/` (15 files) — old refs reclassified as playbooks. New entries:
-  - `data-test-tiers`
-  - `ingestion-test-tiers`
-  - `medallion-guardrails`
-  - `multi-session-resume`
-- `_shared/references/patterns/` **(NEW)** — `dbt-patterns.md` and `dlt-patterns.md`, explicitly tagged `variant: med`. This is the per-variant payload.
-- `_shared/templates/` — 6 templates including the new `implementation-plan-template.md` and `skill-template.md`. Old per-target template trees (`duckdb/`, `fabric/`) are gone.
+The new `_shared/` folder replaces both the old shared references and the deleted library:
 
-## Flow
+- An index file at the top makes the contents discoverable.
+- A `conventions/` folder collects seven style guides (git workflow, logging, model naming, runtime audit columns, instruction-file style, SQL style, YAML style).
+- A `playbooks/` folder collects fifteen longer how-to documents. New entries include test-tier definitions for both data tests and ingestion tests, medallion guardrails, and multi-session resume rules.
+- A **new** `patterns/` folder with two files (one for dbt patterns, one for dlt patterns). These are tagged `variant: med` and are the per-variant payload — what differs between the "low", "med", and "high" toolkits.
+- A `templates/` folder with six templates, including a template for the new step-by-step plan file and a template for new automated tasks. The old per-target template trees are gone.
+
+## How it all flows
 
 ```
-[Startup] coordinator reads intents/ → resume from implementation-plan.md (first step ≠ done)
+[Startup] coordinator looks at the intents folder → resumes from the
+          first step in the plan whose status is not "done"
         │
-        ▼ (fresh)
-classifying-data-intents (touch .skill-ran/) → confirm work type
+        ▼ (if there is no plan yet)
+classify the user's request (drop the task-ran marker) → confirm work type
         ▼
-managing-intent-design-docs → intent.md → design.md (Model/Pipeline Inventory + Gate Status)
+manage design docs → write intent.md → write design.md
+                                       (with Model/Pipeline Inventory + Gate Status)
         ▼
-managing-intent-design-docs → emit implementation-plan.md (steps with skill_to_invoke)
+manage design docs → emit the step-by-step plan
         ▼
-loop: read next step → load skill named by skill_to_invoke → execute → step.status = done
+loop: read next step → load the task it names → run it → mark step done
    ├─ ingestion track:
-   │    scaffolding-* → discovering-source-schema → generating-dlt-pipeline
-   │    → running-dlt-in-* → pinning-dlt-schema → ingestion-data-testing
-   │    → documenting-dlt-pipelines → evaluating-dlt-pipeline
+   │    set up workspace → discover schema → generate dlt pipeline
+   │    → run in sandbox → pin schema → run ingestion tests
+   │    → document the pipeline → evaluate the pipeline
    └─ transformation track:
-        scaffolding-* → applying-medallion-data-modelling → generating-dbt-model
-        → running-dbt-in-* → dbt-unit-testing → documenting-dbt-models
-        → publishing-dbt-contracts → evaluating-dbt-project
+        set up workspace → apply medallion modelling → generate dbt model
+        → run in sandbox → run dbt unit tests → document the models
+        → publish dbt contracts → evaluate the dbt project
         ▼
-reviewers dispatched per gate; verbatim JSON; ✅ markers added to design.md Gate Status
+reviewers run at each gate; their structured verdict is pasted verbatim;
+checkmarks are added to design.md's Gate Status section
 ```
