@@ -1,269 +1,323 @@
 # Studio `source-connection-setup` vs vibedata-data-engineering Plugin
 
-Comparison of Studio's source-connection-setup feature against the current (med variant, v0.1.3) vibedata-data-engineering plugin's ingestion skill cluster. The question this answers: **when an FSA finishes the Studio source-connection harness and a dlt pipeline build step runs, does the plugin get everything its ingestion skills need — and does Studio surface everything those skills expect to read?**
-
-Inputs read:
-
-- Spec: `docs/functional/source-connection-setup/README.md`
-- Design: `docs/design/source-connection-setup/README.md`, `docs/design/source-connection-setup/implementation-approach.md` (skimmed only)
-- Backend: `src/server/modules/source-connections/source-connections.router.ts`, `source-connections.service.ts`, `source-connections.schemas.ts`, `helpers/connection-submit.ts`, `helpers/dlt-config-toml.ts`, `helpers/sandbox-test-runner.ts` (head), `helpers/master-secrets.ts` (head), `helpers/connector-source-cache.ts` (grep)
-- Frontend: `src/features/source-connections/{api,store,schemas}.ts`, `components/SourceConnectionHarness/` (listed), `src/features/settings/components/Settings/modals/source-wizard/` (listed)
-- Plugin context: `02-new-version.md`, `05-best-practice-vs-plugin-patterns.md`, `06-plugin-gaps-and-action-items.md`
-
-Note: the spec explicitly **excludes** non-API source types (files, databases) — Fabric Data Factory / mirroring handles those. The plugin's ingestion skills are also API-shaped, so the scope match is clean.
-
-> **Correction (2026-05-21):** an earlier revision of this file claimed *"Plugin skills don't read `[studio.*]` at all"*. That is wrong. The `discovering-source-schema` SKILL.md frontmatter explicitly says it triggers on *"introspecting `[studio.sources.*]` in `.dlt/config.toml`"*, and Studio's own `helpers/dlt-config-toml.ts:114-118` comment names that skill plus `generating-dlt-pipeline` as the downstream consumers of the `[studio.sources.<name>]` overlay (`entry_point`, `schema`, `auth_method`, `connector`, `connector_source`, `kv-secrets`). The overlay **is** the canonical Studio→plugin contract on the read path. Row 3 of the gap matrix has been rewritten; downstream sections that argue for *adding* fields to the overlay (cursor, profiling, discovered-resource hints) remain valid — those are extensions to a contract that already exists, not a new contract.
+> **Rewritten 2026-05-21** by reading the actual plugin SKILL.md files (not prior-file summaries) and the Studio TOML writer / submit pipeline directly. Two corrections versus the previous revision:
+>
+> 1. **Prior claim "Plugin skills don't read `[studio.*]`" was wrong.** `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` frontmatter triggers on _"introspecting `[studio.sources.*]` in `.dlt/config.toml`"_. The `[studio.*]` overlay is the read-side contract; what's missing from it is a different (and narrower) gap.
+> 2. **KV / Key Vault credential mode is deferred.** Studio's submit handler hard-rejects any domain whose `credentialMode !== 'local'` (`helpers/connection-submit.ts:79-89` — `501 BE901 "Phase A ships local mode only; KV mode arrives in Phase B (Epic 10)"`). All KV-shaped rows in the gap matrix below are flagged `KV mode: deferred` and re-derived only against the `local` credential path.
 
 ---
 
-## 1. Studio `source-connection-setup` overview
+## 1. Inputs read
 
-### End-to-end flow
+### Plugin SKILL.md (read raw via `gh api` against `accelerate-data/vd-data-engineering@main`)
 
-```
-FSA on intent UI
-   │
-   │  invokes /add-source harness command (chat composer intercept)
-   ▼
-SourceConnectionHarness modal (src/features/source-connections/components/SourceConnectionHarness/)
-   │
-   ├── Step 1: Connector pick (4 pivots: Home / All / Recent / Sources)
-   │     GET /api/v1/source-connections/connectors        → listAllConnectors()
-   │       returns CombinedConnector[]                    (source-connections.service.ts:160)
-   │       — one card per (connector, entryPoint) pair
-   │
-   ├── Step 2: Auth method
-   │     GET /api/v1/source-connections/connectors/:src/:conn/:ep/schema
-   │       → loadDynamicEntryPointSchema()                (router.ts:195-234)
-   │       returns authMethods[] + connector metadata
-   │
-   ├── Step 3: Fields
-   │     - connection name (TOML section key)
-   │     - destination schema (dataset_name, defaults to src_<name>)
-   │     - auth field values  (Local mode: plaintext; KV mode: secret-name picker)
-   │     - connector-specific non-secret config
-   │
-   ├── Test Connection (gate to submit)
-   │     POST /api/v1/source-connections/test-connection  (router.ts:236)
-   │       → preSubmitTestHandler → runSandboxTest()      (sandbox-test-runner.ts)
-   │     Stages an ephemeral dir, copies connector code from cache, writes
-   │     toml + secrets + pipeline.py, runs against `dummy` destination,
-   │     categorises (pass | invalid_credentials | source_unreachable |
-   │     connector_error | timeout | sandbox_setup_failed).
-   │     Also extracts a resource-name list from a stdout sentinel (F14).
-   │     Issues a testToken = sha256 over the exact input on pass.
-   │
-   ▼
-Submit (only with matching testToken)
-   POST /api/v1/source-connections/connections           (router.ts:238)
-     → submitConnectionHandler → submitConnection()      (connection-submit.ts:67)
-       1. Assert intent + domain + working branch
-       2. Phase-A gate: domain.credentialMode === 'local' (KV mode = 501)
-       3. Verify clone is on the intent branch
-       4. Reject duplicate [studio.sources.<name>] on branch OR origin/main
-       5. Resolve entry-point hints (credentialShape, kind) from cached schema
-       6. appendConnectionToToml(.dlt/config.toml)        (dlt-config-toml.ts:143)
-            → [sources.<name>.<section(s)>]              (dlt-native, dual-write fallback)
-            → [sources.<name>.<section>.credentials]     (when shape=dataclass)
-            → [studio.sources.<name>]                    (Studio overlay)
-       7. Commit on intent branch (atomic; restore on failure)
-       8. appendSecretsForConnection() →                  (master-secrets.ts)
-            DATA_DIR/domains/<slug>/.dlt/secrets.toml (mode 0600, dir 0700)
-       9. copyMasterSecretsIntoClone()                   (intents/helpers/...)
-       10. setImmediate: runDltInit() + installConnectorRequirements()
-            — fire-and-forget connector code copy into the clone, post-commit
-```
+Path prefix `plugins/vibedata-data-engineering/skills/<name>/SKILL.md`:
+
+- `classifying-data-intents`
+- `discovering-source-schema`
+- `profiling-source-data`
+- `generating-dlt-pipeline`
+- `pinning-dlt-schema`
+- `running-dlt-in-sandbox`
+- `running-dlt-in-duckdb-sandbox`
+- `running-dlt-in-fabric-sandbox`
+- `ingestion-data-testing`
+- `dlt-unit-testing`
+- `documenting-dlt-pipelines`
+- `evaluating-dlt-pipeline`
+- `scaffolding-duckdb-workspace`
+- `scaffolding-fabric-workspace`
+- `validating-fixture-replay`
+- `validating-golden-data`
+- `managing-intent-design-docs`
+
+### Plugin shared references
+
+- `_shared/references/patterns/dlt-patterns.md` (118 generated patterns)
+- `_shared/references/playbooks/dlt-resource-conventions.md`
+- `_shared/references/playbooks/ingestion-test-tiers.md`
+- `_shared/references/playbooks/medallion-guardrails.md`
+- `_shared/references/playbooks/multi-session-resume.md`
+- `agents/data-engineer.md` (coordinator)
+
+### Studio source (absolute paths)
+
+- `docs/functional/source-connection-setup/README.md`
+- `docs/design/source-connection-setup/README.md` (TOML shape, harness command, schema introspection sections)
+- `src/server/modules/source-connections/source-connections.router.ts`
+- `src/server/modules/source-connections/source-connections.schemas.ts`
+- `src/server/modules/source-connections/helpers/dlt-config-toml.ts`
+- `src/server/modules/source-connections/helpers/connection-submit.ts`
+- `src/server/modules/source-connections/helpers/sandbox-test-runner.ts`
+- `src/server/modules/source-connections/helpers/parse-connections.ts`
+- `src/server/modules/intents/helpers/copy-master-secrets.ts`
+- `src/server/modules/intents/helpers/dlt-init.ts`
+- `src/features/source-connections/api.ts`, `types.ts`
+
+---
+
+## 2. Studio `source-connection-setup` overview
+
+### Wizard
+
+Three-step modal (`/add-source` slash-command intercept in the chat composer):
+
+1. **Connector pick** — `GET /api/v1/source-connections/connectors`. Returns one row per `(connector, entryPoint)` pair across all registered connector sources.
+2. **Auth method** — `GET /api/v1/source-connections/connectors/:connectorSource/:connector/:entryPoint/schema` → `loadDynamicEntryPointSchema()` (`source-connections.router.ts:195-234`). Returns `authMethods[]` + connector metadata.
+3. **Fields** — connection name, destination schema (defaults to `src_<connection_name>`), auth values, connector-specific non-secret config. Auth fields render plaintext (Local mode).
+
+### API endpoints (auth-gated, `requireAuth`)
+
+| Verb + Path | Handler | Purpose |
+|---|---|---|
+| `GET /connectors` | `listAllConnectors()` | Card grid feed |
+| `GET /connectors/:src/:conn/:entry/schema` | `loadDynamicEntryPointSchema()` (router 195) | Step-2 + Step-3 schema |
+| `POST /test-connection` | `preSubmitTestHandler` → `runSandboxTest()` | Gate-to-submit sandbox test |
+| `POST /connections` | `submitConnectionHandler` → `submitConnection()` | Persist + commit |
+| `GET /domains/:domainId/connections` | `readDomainConnectionsFromMain()` | Settings viewer |
+| `POST /domains/:domainId/connections/:name/test` | `runSandboxTest()` | Re-test existing |
+| `POST /domains/:domainId/connections/test-all` | batched re-test | Settings "Test all" |
 
 ### Data model
 
-There is no per-connection DB row. The source-of-truth for a connection is the **TOML file** in the intent branch. The DB holds only:
+- `data_domains.credentialMode` (`'local' | 'keyvault'`) — Studio rejects submit for any non-`local` domain in Phase A (`connection-submit.ts:79-89`).
+- `connector_sources(name PK, gitUrl, branch, ...)` — registry of dlt verified-source repos. Seeded with `dlt-verified` → `https://github.com/dlt-hub/verified-sources`.
+- No DB row per *connection*. The connection identity lives only in `.dlt/config.toml` on the intent branch (Studio overlay header `[studio.sources.<name>]`).
 
-- `connector_sources` (system-level registry, `src/server/db/schema/connector-sources.ts`)
-- `data_domains.credentialMode` (`'local' | 'keyvault'`)
-- standard `intents` + `domain_git_config` rows (already present)
+### TOML write contract (the canonical Studio → plugin handoff)
 
-This is a deliberate departure from any DB-backed connection state — the spec calls it out as an invariant ("No Studio-side connector registry … Connection definition lands in the intent's PR"). Plug-in invocation later is "read the committed file."
+Written by `appendConnectionToToml()` (`helpers/dlt-config-toml.ts`). For one submit, the writer appends to `<clonePath>/.dlt/config.toml`:
 
-### Handoff to the plugin
+```toml
+# dlt-native section(s) — read by dlt's TOML provider at pipeline runtime.
+# Names depend on entry-point kind (VD-2071):
+#   kind = 'source'    → one block under [sources.<name>.<entryPoint>]
+#   kind = 'resource'  → one block under [sources.<name>.<connector>]
+#   kind = undefined   → DUAL-WRITE under both (legacy fallback)
+[sources.<name>.<section>]
+<non-secret config key> = <value>
 
-The plugin enters the picture at **intent build**, after the harness commit lands. The handoff surface is purely files-on-disk inside the intent clone:
+# Optional .credentials sub-section (VD-2041, written when credentialShape === 'dataclass'):
+[sources.<name>.<section>.credentials]
+<credential non-secret> = <value>     # e.g. salesforce user_name
 
-- `.dlt/config.toml` with `[sources.<name>.*]` (dlt-native) + `[studio.sources.<name>]` (Studio overlay including `connector`, `connector_source`, `entry_point`, `schema`, `auth_method`).
-- `.dlt/secrets.toml` copied in from `DATA_DIR/domains/<slug>/.dlt/secrets.toml` at execution time (Local mode); never committed.
-- The connector source folder under `sources/<connector>/` after `dlt init --location <cache-path>` runs (fire-and-forget on submit, or at intent build for the deferred path).
+# Studio overlay — dlt ignores; plugin discovery skill reads it.
+[studio.sources.<name>]
+connector = "<connector>"
+connector_source = "<connectorSource>"   # registry row name (e.g. "dlt-verified")
+entry_point = "<entryPoint>"             # VD-2020; optional only on legacy rows
+schema = "<schema>"                      # dataset_name; default src_<name>
+auth_method = "<authMethodId>"           # optional
+created_at = "<ISO 8601>"
+```
 
-The plugin skill that consumes this is **`generating-dlt-pipeline`** (with `discovering-source-schema` running first). Neither has a Studio adapter; they assume the standard dlt OSS layout.
+KV mode would additionally emit `[studio.sources.<name>.secrets]` (`dlt-config-toml.ts:129-135`). **KV mode: deferred — local credential mode only.**
 
----
+### Master secrets (Local mode)
 
-## 2. Plugin's expected contract on the source side
+- Written by `appendSecretsForConnection()` (`helpers/master-secrets.ts`) into `DATA_DIR/domains/<slug>/.dlt/secrets.toml` (chmod 0600, never committed).
+- Copied into the intent clone at submit by `copyMasterSecretsIntoClone()` (`intents/helpers/copy-master-secrets.ts:20-46`) → `<clonePath>/.dlt/secrets.toml`.
 
-From `02-new-version.md` flow + `05-best-practice-vs-plugin-patterns.md` + `06-plugin-gaps-and-action-items.md`:
+### Where the plugin enters
 
-### What plugin skills assume about a source connection
+After submit:
 
-| Skill | What it expects on disk / in inventory |
-|---|---|
-| `scaffolding-duckdb-workspace` / `scaffolding-fabric-workspace` | A clean workspace where `dbt debug` is green; `.dlt/config.toml` and `.dlt/secrets.toml` are present but **not edited by the skill**. |
-| `discovering-source-schema` | A working connector + creds. Output: per-resource **Pipeline Inventory** rows capturing primary key, columns, write disposition, cursor field, schema_contract decision. Per plugin gap audit (P0 in `06`), it does **not** today profile server-side-vs-client-side timestamps, mutation window, cursor type, or rate limits. |
-| `generating-dlt-pipeline` | Reads the Inventory + connector source code. Generates `<source>_pipeline.py` plus per-resource skeleton. Invariants: no transforms in bronze, never `tables:freeze` at generation time, `merge` + `primary_key` for mutables, `append` for events, `replace` for small reference tables. **Does not currently require** `allow_external_schedulers=True`, `row_order`, `max_table_nesting=2`, `lag`, or typed `@configspec Union` auth. |
-| `pinning-dlt-schema` | Runs **after** first successful load. Writes per-resource YAML schemas + sets `tables:freeze`. |
-| `running-dlt-in-duckdb-sandbox` / `running-dlt-in-fabric-sandbox` | Pure dispatcher of `dlt pipeline run` against the configured destination. Reads credentials via dlt's stock provider chain. |
-| `ingestion-data-testing` | Tier 1 mandatory tests: `_dlt_id` non-null + unique on bronze tables. |
-
-### What plugin skills assume about credentials
-
-Patterns `05` documents:
-
-- `dlt-secrets-in-ci-github-actions-env-never-secrets-toml` — secrets via env vars in CI; for dev, dlt's standard provider chain (env → `~/.dlt/secrets.toml` → workspace `.dlt/secrets.toml`).
-- `dlt-anti-pattern-same-set-of-credentials-for-dev-and-prod` — per-env separation.
-- The plugin has **no Studio-aware Key Vault provider** mentioned anywhere. KV-mode credential resolution is owned entirely by Studio's design (Phase B, design doc §"Studio-aware dlt KV provider").
-
-### What plugin skills assume about destination scaffolding
-
-- DuckDB workspace: `dlt-duckdb-for-dev-parquet-on-s3-for-prod`; the scaffolding skill provisions DuckDB path + dbt profile.
-- Fabric workspace: scaffolding skill handles auth (401 → escalate) and Spark cold-start; assumes a single `[destination.*]` block already chosen at domain level.
-
-The Studio design matches both — destination is per-domain, not per-connection.
+1. `setImmediate()` block in `connection-submit.ts:167-176` fires `initConnectorInBackground` → `runDltInit()` materialising the connector code under `<clonePath>/<connector>/`.
+2. `ensureConnectorsForIntent()` in `intents/helpers/dlt-init.ts:47` does the same idempotently at intent creation/resume, iterating every `[studio.sources.<name>]` block parsed by `parseConnectionsFromToml()`.
+3. The plugin coordinator (`agents/data-engineer.md`) runs `classifying-data-intents` → `managing-intent-design-docs` → workspace scaffolder (`scaffolding-duckdb-workspace` or `scaffolding-fabric-workspace`) → ingestion ladder.
 
 ---
 
-## 3. Gap matrix
+## 3. The contract surface — what Studio writes vs what plugin skills actually read
 
-| # | Capability / concern | Studio behavior | Plugin expectation | Gap | Severity |
+Quotes are verbatim from the SKILL.md frontmatter / Invariants sections.
+
+| TOML key (written by Studio) | Skill that explicitly reads it | Proof quote |
+|---|---|---|
+| `[studio.sources.<name>]` block (header itself, enumeration) | `discovering-source-schema` | *"introspecting `[studio.sources.*]` in `.dlt/config.toml`, listing dlt resources/fields, or filling ingestion inventory rows"* (frontmatter description) |
+| `[studio.sources.<name>]` block (presence as gate) | `scaffolding-duckdb-workspace` | *"for every `[studio.sources.<name>]` entry in `.dlt/config.toml`, the matching `[sources.<name>.<connector>]` block exists and the secret keys the connector declares are present (key presence only — do not read values). Any gap halts the scaffold; the user must complete `/add-source` and re-run."* (Invariants) |
+| `[studio.sources.<name>].schema` | dlt resource conventions (consumed by `generating-dlt-pipeline`) | *"Dataset name (DuckDB schema): whatever `[studio.sources.<connection_name>].schema` declares in `.dlt/config.toml` — default `src_<connection_name>` when the overlay omits it. Read this value; never invent a schema name."* (`dlt-resource-conventions.md`) |
+| `[studio.sources.<name>].connector`, `.connector_source` | (read implicitly by Studio's parser + dlt-init hook; **no skill cites them by name**) | — |
+| `[studio.sources.<name>].entry_point` | (no SKILL.md mentions this key; written for Studio's own re-test path; plugin pipeline code does not need it because `@dlt.source` resolves by Python symbol) | — |
+| `[studio.sources.<name>].auth_method` | (no SKILL.md mentions this key; rendering hint for Studio Settings re-pick) | — |
+| `[sources.<name>.<section>]` (dlt-native non-secret block) | dlt runtime (not a skill); presence asserted by `scaffolding-duckdb-workspace` | see row 2 |
+| `[sources.<name>.<section>.credentials]` non-secret members | dlt runtime, indirectly via *"Credentials resolve through dlt's stock provider chain (`.dlt/secrets.toml`, env, KV). Do not read env files or arbitrary credential keys yourself"* (`discovering-source-schema` Invariants) | quoted |
+
+What no SKILL.md mentions (in any frontmatter or Invariants block):
+
+- `connector_source` registry name.
+- `entry_point` value.
+- `auth_method` value.
+- An incremental-cursor hint.
+- A profiling-results hint.
+- Any in-scope-resource list.
+
+The discovery skill is expected to walk every `[studio.sources.*]` and *introspect* the connector to derive resources + fields + types. Studio writes nothing about resources, fields, or cursors into the TOML.
+
+---
+
+## 4. Per-skill review (ingestion cluster, 12 skills)
+
+Order follows the data-engineer coordinator's natural flow.
+
+### 4.1 `classifying-data-intents`
+- **Entry expectation:** the user's latest request only. No TOML, no workspace.
+- **Produces:** classification payload (`action`, `type`) consumed by the coordinator; commits verdict to `intent.md`.
+- **Studio gap:** none. Runs before workspace touches.
+
+### 4.2 `managing-intent-design-docs`
+- **Entry:** prior `intent.md` / `design.md` if any.
+- **Produces:** `intents/<slug>/intent.md`, `design.md`, `implementation-plan.md`. For ingestion intents `design.md` MUST contain a `Pipeline Inventory` section (per `agents/data-engineer.md`).
+- **Studio gap:** Studio submits no row template into Pipeline Inventory. The agent has to materialize rows from scratch by re-running discovery for every `[studio.sources.*]` block, even though Studio already enumerated connectors + auth methods + connection names at submit.
+
+### 4.3 `scaffolding-duckdb-workspace` (or fabric variant)
+- **Entry:** `vd-domain.yml`, `.dlt/config.toml`, `.dlt/secrets.toml`. SKILL.md Invariants: *"Never write or modify `.dlt/config.toml` or `.dlt/secrets.toml`. They are produced upstream by Studio's `/add-source` flow and are read-only inputs here."*
+- **Gate quoted in §3 row 2.**
+- **Studio gap (caught by direct read):** the scaffold gate looks for `[sources.<name>.<connector>]` — but VD-2071 writes the section under EITHER `<connector>` OR `<entryPoint>` depending on entry-point kind (`dlt-config-toml.ts:60-70`). For `kind = 'source'` with `entryPoint !== connector` (e.g. `github_reactions` entry point under the `github` folder), the gate's literal-string check could miss a valid block. SKILL wording does not handle the `<section>` axis VD-2071 introduced.
+
+### 4.4 `discovering-source-schema`
+- **Entry:** enumerates every `[studio.sources.*]` in `.dlt/config.toml` and imports the connector's verified-source module to introspect resources.
+- **Produces:** Pipeline Inventory rows with *"target table name, write disposition, incremental cursor, and a draft `schema_contract`"* (Invariants).
+- **Error contract:** `OBJECT_NOT_FOUND` on import failure, `SOURCE_AUTH_FAIL` on auth failure. SKILL.md is emphatic: *"Credentials resolve through dlt's stock provider chain (`.dlt/secrets.toml`, env, KV). Do not read env files or arbitrary credential keys yourself."*
+- **Studio gap:** Studio's submit-time sandbox test **already discovers** resources (`SandboxRunResult.resources?`, `sandbox-test-runner.ts:84-94`). That list is not persisted into the TOML overlay; the discovery skill re-introspects from scratch. Studio also writes no cursor or write-disposition hint, but the SKILL invariant requires the Inventory row to carry one — the agent must invent within the patterns guidance in `dlt-resource-conventions.md`.
+
+### 4.5 `pinning-dlt-schema`
+- **Entry:** approved Pipeline Inventory rows.
+- **Produces:** `schema_contract` on each resource skeleton (`evolve|freeze|discard_value|discard_row` × 3 axes). Must not write `"tables": "freeze"` at pin time.
+- **Studio gap:** none — schema_contract is a downstream decision.
+
+### 4.6 `generating-dlt-pipeline`
+- **Entry:** pinned Inventory rows + `dlt-resource-conventions.md` (which reads `[studio.sources.<name>].schema` for the dataset name — see §3 row 3).
+- **Hard invariants:** *"Do not author a custom `@dlt.source` wrapper for a verified source. Do not create per-resource `dlt/<object>.py` files when the verified source already defines them."* and *"Do not commit the pipeline file without a successful dry-run first."*
+- **Studio gap:** the conventions playbook names `pipeline_name = <connection_name>_bronze`. Studio's connection_name is the TOML section subkey, so this lines up. But: the skill assumes a *single* `dlt.pipeline(...)` per workspace; Studio supports N connections per domain → N pipelines per intent. There is no skill guidance for the multi-connection case, and `dlt-patterns.md` flags *"anti-pattern-running-two-pipelines-with-the-same-name-working-dir-in-parallel"* without resolving it.
+
+### 4.7 `running-dlt-in-sandbox` (dispatcher)
+- **Entry:** `vd-domain.yml` `destination.type`. Dispatches to duckdb or fabric child.
+- **Studio gap:** Studio populates `vd-domain.yml` at domain create time; aligned.
+
+### 4.8 `running-dlt-in-duckdb-sandbox`
+- **Entry expectation:** `.dlt/secrets.toml` already populated. SKILL: *"confirm `.dlt/secrets.toml` is populated for the source. Do not edit it yourself — re-run `/add-source` if the keys are missing."*
+- **Studio guarantees this via `copyMasterSecretsIntoClone()`.** Aligned.
+
+### 4.9 `running-dlt-in-fabric-sandbox`
+- **Entry expectation:** harness pre-hook injects `FAB_TOKEN*`, `VD_STUDIO_USER_ID`, `EPHEMERAL_*` env vars. SKILL: *"Never inspect or set `FAB_TOKEN*` / `VD_STUDIO_USER_ID`. They are injected at command time by the harness pre-hook."*
+- **Studio gap:** not verified in this rewrite (Fabric harness pairing belongs to KV phase). Flagged as follow-up.
+
+### 4.10 `dlt-unit-testing`
+- **Entry:** approved resource Python; mocks the connector.
+- **Studio gap:** none direct.
+
+### 4.11 `ingestion-data-testing`
+- **Entry:** landed bronze tables in the configured warehouse.
+- **Invariant:** Tier 1 = `_dlt_id` non-null + unique on every bronze table; always included.
+- **Studio gap:** none — tier selection is the agent's call.
+
+### 4.12 `documenting-dlt-pipelines` / `evaluating-dlt-pipeline`
+- **Entry:** generated artifacts.
+- **Studio gap:** none.
+
+---
+
+## 5. Gap matrix (local credential mode)
+
+Severity: **B(locker)** = pipeline build halts or wrong output; **F(unctional)** = manual workaround needed; **N(it)** = avoidable duplicate work.
+
+| # | Capability | Studio behavior | Plugin skill expectation | Gap | Severity |
 |---|---|---|---|---|---|
-| 1 | **Incremental cursor selection** | Spec never mentions cursor; harness form has no field for it; `submitConnectionSchema` carries only auth + non-secret config; `[studio.sources.<name>]` records connector, entry_point, schema, auth_method, created_at, secrets — **no cursor metadata**. | `discovering-source-schema` builds a Pipeline Inventory row that includes cursor field, write disposition, schema_contract decision per resource. Per `06` P0/P1, the plugin would *ideally* also capture mutation window for `lag`, server-vs-client timestamp, server-side filter availability. | Studio surfaces zero cursor / incremental signal. The plugin's `discovering-source-schema` skill is the one expected to figure it out — but it must do so from the live source, with no pre-population from the harness. Workable, but the harness drops introspection state (sandbox stdout sentinel produces a resource list — see §5 — that is discarded after Test Connection completes). | high |
-| 2 | **Pipeline Inventory pre-population** | Test Connection sandbox parses a stdout sentinel into a resource-name list (F14 in the spec; `parseResourceSentinel` in `sandbox-test-runner.ts`). The list is rendered as an informational pane and then **discarded** — it is not committed, not persisted, not surfaced to the agent. | Plugin's `generating-dlt-pipeline` reads the Inventory authored by `discovering-source-schema`. There is no convention that lets the plugin pick up Studio's already-discovered resource list as a hint. | The plugin re-discovers what the harness already discovered — duplicate work, and the two introspections may disagree (Studio uses the verified-sources copy from cache; plugin uses the freshly-`dlt init`-ed copy in the intent clone). | med |
-| 3 | **Auth method config shape (TOML credentials placement)** | `helpers/dlt-config-toml.ts:88` decides between direct-param shape and `.credentials` sub-section based on the introspected `CredentialShape`. Falls back to dual-write when the shape isn't known (VD-2017 legacy path). | dlt's native resolver reads `[sources.<name>.<section>]` for secrets/non-secrets. The **`[studio.sources.<name>]` overlay** (connector, connector_source, entry_point, schema, auth_method, created_at, kv-secrets map) is the **canonical contract** the plugin's `discovering-source-schema` skill keys off — its SKILL.md frontmatter explicitly says *"Trigger on introspecting `[studio.sources.*]` in `.dlt/config.toml`"*, and Studio's `dlt-config-toml.ts:114-118` comment names that skill plus `generating-dlt-pipeline` as the downstream consumers. | None on the happy path. Risk: when the introspection cache is cold or the connector schema is unknown, Studio dual-writes both shapes. dlt accepts this, but `pinning-dlt-schema` may complain about unexpected `.credentials` blocks later. | low |
-| 4 | **Entry-point vs connector-folder naming** | VD-2020/2071: `[studio.sources.<name>].entry_point` records the user's Step-1 pick. The TOML writer emits one `[sources.<name>.<section>]` block keyed off `entry_point` (source kind) or `connector` (resource kind). Legacy fallback dual-writes under both. | The plugin's `discovering-source-schema` skill expects to introspect the connector module on disk; the dlt-native section name must match how the `@dlt.source` / `@dlt.resource` function resolves its config. | Mostly fine — `connection-submit.ts:316` resolves the kind from the cached schema. But Studio's cache and the plugin's `dlt init`-ed copy can drift if the upstream connector source repo moves on between the two events. | low |
-| 5 | **Secret persistence — Key Vault mode** | Spec includes KV mode end-to-end (KvSecretPicker, KV references in `[studio.sources.<name>.secrets]`). Implementation **is gated off** — `connection-submit.ts:79-89` returns HTTP 501 when `domain.credentialMode !== 'local'`. Phase A ships local only; KV mode = "Phase B / Epic 10" with a Studio-aware dlt KV provider. | The plugin assumes whatever provider Studio installs into the venv resolves `dlt.secrets["sources.<name>.<field>"]` correctly. The plugin has **no awareness of KV**, by design. | Spec ↔ code divergence. Anyone reading the spec will assume KV mode works; in the code it's a hard 501. The plugin side is fine — it doesn't care which provider resolves the secret as long as the value arrives. | **high (spec divergence)** |
-| 6 | **Schema discovery handoff** | Test Connection runs the source against the `dummy` destination; emits a resource list via stdout sentinel; throws the list away after rendering. | `discovering-source-schema` runs its own discovery against the live destination (DuckDB sandbox or Fabric) to populate Inventory. | Two independent discovery passes against the same source. No mechanism for Studio to seed the Inventory or for the plugin to know the harness already passed. | med |
-| 7 | **Profiling handoff (server-side vs client-side timestamps, mutation window, cursor type)** | Not captured by the harness at all. | Per `06` P0: this is the single most-skipped step in the plugin too — `profiling-source-data` skill is for bronze→silver readiness, not upstream-source profiling. There is no skill that owns it. | Neither side captures this. Cross-cutting gap inherited from the plugin. | high (inherited) |
-| 8 | **Schema-contract decision** | Spec never mentions `schema_contract`. The harness never asks. | Plugin pattern catalogue makes `tables:evolve, columns:freeze, data_type:freeze` the must-do default; `pinning-dlt-schema` enforces it post-first-load. | Plugin owns the decision; Studio doesn't need to surface it. No gap, but worth confirming the plugin's `generating-dlt-pipeline` always writes the contract from defaults when no Inventory hint exists. | low |
-| 9 | **Write-disposition decision** | Not captured by the harness. | Plugin's `discovering-source-schema` + `generating-dlt-pipeline` own it via Inventory rows. | No gap on contract; same duplication risk as #2. | low |
-| 10 | **Source-type coverage mismatch** | Spec excludes file-based and database sources (handled by Fabric Data Factory copy + Fabric mirroring). | Plugin skills assume API sources, but `dlt-patterns.md` covers SQL/file ingestion patterns too. | Studio simply doesn't expose those source types through this surface. Documented out-of-scope. | low |
-| 11 | **Connector source registry (multi-repo)** | `connectorSources` DB table holds the system-level list; `dlt-verified` seeded as official. Harness lists union across all registered repos; Test Connection sandbox pulls from the cache. | Plugin's `generating-dlt-pipeline` and `dlt init --location` accept any verified-sources-shaped repo URL. | No gap; aligned. | — |
-| 12 | **Connector-code lifecycle** | At submit: `setImmediate` → `runDltInit` + `installConnectorRequirements` into the intent clone, fire-and-forget. | Plugin expects `sources/<connector>/__init__.py` to exist when its scaffolding skill runs. | If the fire-and-forget init silently fails, the plugin scaffolding will see a missing connector and surface a generic error. The submit response does not wait for or surface init result. | med |
-| 13 | **Error-surface mismatch (Test Connection categories)** | Studio categorises: `pass`, `invalid_credentials`, `source_unreachable`, `connector_error`, `timeout`, `sandbox_setup_failed`. Spec F9-F12 maps these to user-facing messages. | Plugin skills use generic dlt errors when their own runs fail; no convention that mirrors Studio's category set. | None on the harness; an agent re-running the same source later will surface dlt's raw error, not Studio's category — minor UX inconsistency. | low |
-| 14 | **Test mechanic re-use for stored connections** | `POST /domains/:domainId/connections/test-all` reads `.dlt/config.toml` on origin/main, resolves secrets from master `secrets.toml`, runs the same `runSandboxTest`. Concurrency = 4. Legacy entries without `entry_point` fall back to `conn.connector` (router.ts:167-169). | Plugin has no equivalent — its evaluating-dlt-pipeline skill audits the pipeline file, not credentials liveness. | Studio owns liveness; plugin doesn't claim it. Aligned. | — |
-| 15 | **Resource-list extraction failure (F14)** | Non-blocking warning; submit stays enabled. Resource list itself isn't persisted regardless. | n/a — plugin re-discovers anyway. | Aligns. | — |
-| 16 | **Connection identity** | TOML section name = connection name (spec invariant). Phase-A enforced unique on the branch AND on origin/main (`ensureNoDuplicateName`). | dlt-native, plugin happy with this. | None. | — |
-| 17 | **Phase-A gate visibility** | The 501 KV gate is a runtime check at submit time, not a feature flag the frontend reads. Frontend offers the KV picker if the schema says so. | n/a | Internal — but means an FSA in a KV-mode domain can fill the form and only hit the 501 on submit. Quality-of-life issue, not a plugin-side gap. | med |
+| 1 | Connection enumeration | Writes `[studio.sources.<name>]` overlay per submit (`dlt-config-toml.ts:111`) | `discovering-source-schema` introspects every `[studio.sources.*]` (frontmatter, §3) | None — contract honored | — |
+| 2 | Destination schema (dataset_name) | Writes `schema = "..."` under overlay (`dlt-config-toml.ts:123`) | `dlt-resource-conventions.md` mandates reading this verbatim | None — explicit read | — |
+| 3 | Connector module path | Writes `connector`, `connector_source` | No SKILL cites these by name; Studio's own `parseConnectionsFromToml` + `dlt-init.ts` consume them | None — Studio's harness is the consumer | — |
+| 4 | Entry-point identity | Writes `entry_point` (VD-2020) | No SKILL.md reads `entry_point`; dlt resolves by Python symbol at runtime | None for plugin; Studio keeps it for re-test path | — |
+| 5 | Section header axis (`<connector>` vs `<entryPoint>`) | VD-2071 writes ONE section per `kind`; legacy callers dual-write | `scaffolding-duckdb-workspace` invariant only checks literal `[sources.<name>.<connector>]` | Scaffold gate may mis-report missing block when `kind='source'` writes under `<entryPoint>` ≠ `<connector>` | **F** |
+| 6 | Credentials sub-section | VD-2041 emits `[sources.<name>.<section>.credentials]` only for `credentialShape='dataclass'`; legacy dual-write otherwise | dlt runtime resolves via stock provider chain; no SKILL cares about the shape axis | None for plugin | — |
+| 7 | Secret values | Local: master `secrets.toml` written then copied into clone (`copy-master-secrets.ts`) | `running-dlt-in-duckdb-sandbox` requires `.dlt/secrets.toml` populated | None — covered | — |
+| 8 | Discovered-resource list reuse | `runSandboxTest` returns `resources?: string[]` (`sandbox-test-runner.ts:84-94`) but Studio does NOT persist it | `discovering-source-schema` re-introspects from scratch every time | Duplicate work: same resource list discovered twice; first list is thrown away | **N** |
+| 9 | Pipeline Inventory seeding | Studio does not seed any Inventory row stub | `managing-intent-design-docs` requires Inventory rows before `discovering-source-schema` can fill them | Agent has to bootstrap rows from raw TOML on every fresh intent | **N** |
+| 10 | Incremental cursor declaration | None — wizard has no cursor field | SKILL Invariant requires every Inventory row carry `incremental cursor` | Agent must derive cursor from connector metadata / source docs | **F** |
+| 11 | Write disposition default | None | Inventory row must carry write_disposition | Agent picks per resource (per `dlt-resource-conventions.md` defaults) | **F** |
+| 12 | Schema contract default | None | `pinning-dlt-schema` must commit a value (never `TBD`) | Agent picks; aligned | — |
+| 13 | Test-Connection verdict surfaced to skill | Submit-gate sandbox produces `category`, `message`, `resources`, `resourcesError`; only `category=pass` allows submit | Discovery skill's halt vocabulary is `OBJECT_NOT_FOUND` / `SOURCE_AUTH_FAIL` — disjoint from Studio's category enum | No deterministic translation between Studio re-test failure and SKILL error code | **N** |
+| 14 | Multi-connection pipeline strategy | N connections → N entries in TOML; no convention written | `generating-dlt-pipeline` assumes single-pipeline workspace; `dlt-patterns.md` warns against same-name parallel runs | No Studio or skill guidance on workspace layout for N connections | **F** |
+| 15 | KV mode end-to-end | — | — | **KV mode: deferred — local credential mode only** | — |
+| 16 | KV secret-name mapping (`[studio.sources.<name>.secrets]`) | — | — | **KV mode: deferred — local credential mode only** | — |
+| 17 | KV reachability gate | — | — | **KV mode: deferred — local credential mode only** | — |
+| 18 | Bronze-adequacy handoff | — | `profiling-source-data` runs AFTER bronze lands, not against Studio's pre-landing introspection | None — handoff path is filesystem, not TOML | — |
+| 19 | Fabric harness env injection | Not verified in this rewrite | `running-dlt-in-fabric-sandbox` requires `FAB_TOKEN*` injected by harness pre-hook | Follow-up — Fabric pairing belongs with Phase B | — |
+| 20 | Connector source registry → skill awareness | `connector_sources` table in Studio DB; not visible to plugin | Skills assume the connector is `dlt init`'d already; Studio's `dlt-init.ts` enforces this | None — handover via filesystem | — |
 
 ---
 
-## 4. Cross-cutting issues
+## 6. Cross-cutting issues (local mode only)
 
-### 4.1 Secret passthrough
+### Secret passthrough
+Local mode is clean. The master file is the source of truth; `copyMasterSecretsIntoClone()` is idempotent and chmod-tight. The skill invariant *"Do not read env files or arbitrary credential keys yourself"* is honored because the plugin reads via `dlt.secrets.value` resolution, never directly. **No gap.**
 
-Local mode is clean: values flow form → server → master `secrets.toml` (0600) → copy into clone at runtime → dlt's standard provider chain → plugin reads via `dlt.secrets.value`. No plugin awareness needed.
+### Source-type coverage
+Studio's functional spec scopes to API connectors; files / databases route through Fabric Data Factory. The plugin's ingestion cluster is API-shaped (dlt verified sources). Match is clean.
 
-KV mode is **specified but not implemented** (`connection-submit.ts:79-89` rejects with 501). The design references a "Studio-aware dlt KV provider (Python) — its contract, where it sits in dlt's provider chain, and how it maps `dlt.secrets[...]` to operator-picked KV secret names via the overlay" but that provider is not on disk under `src/server/modules/source-connections/` or in any plugin reference. Anyone implementing KV mode will need to ship that provider with the plugin venv. **The plugin does not currently include such a provider.**
+### Incremental config handover
+Studio captures none of: cursor field, cursor start value, write disposition. The plugin SKILL invariant requires all three on every Inventory row. Severity **F** — covered by the agent re-deriving from connector docs, but it is repeated work per intent.
 
-### 4.2 Source-type coverage mismatch
+### Profiling handoff
+`profiling-source-data` is a transformation-side skill; runs after bronze lands, against landed tables, not against Studio's pre-landing introspection. No handoff exists, none is needed.
 
-Studio explicitly excludes file-based and database sources from this flow. The plugin's `dlt-patterns.md` includes SQL/file ingestion patterns, but the corresponding skills (`generating-dlt-pipeline`) still assume the inventory drives the resource generation. As long as the Studio flow only produces API-source connections, the boundary is clean. If Studio later extends to file/DB through this same harness, the plugin's API-shaped invariants will need re-examination.
-
-### 4.3 Incremental config handover
-
-There is **no handover at all** for incremental config. The harness captures connector identity, auth, and non-secret config — nothing else. The plugin's `discovering-source-schema` must rediscover from scratch:
-
-- which field to cursor on
-- whether the source emits server-side or client-side timestamps
-- the mutation window for `lag`
-- write-disposition appropriate to the resource
-
-Per `06` P0/P1, the plugin doesn't even capture all of that today — so there is no Studio→plugin gap *yet*, but when the plugin closes its own P0 gap (a pre-ingestion profiling skill), Studio has nowhere to put the answer. The `[studio.sources.<name>]` overlay would be the natural carrier.
-
-### 4.4 Profiling handoff
-
-Same shape: Studio has no slot for upstream-source profile output, and the plugin has no skill that produces it. Joint gap.
-
-### 4.5 Error-surface mismatch
-
-Studio's pre-submit Test Connection has a six-way result categorisation. Once the connection is committed and a plugin skill drives a real dlt run, errors come back as raw dlt exceptions through the agent's tool output. The vocabulary is different — there's no symmetry that lets an FSA say "this is the same error category the harness showed me."
-
-### 4.6 Resource-list discard
-
-Studio's sandbox already returns a resource list; it lights up an informational panel and disappears. A trivial improvement would be persisting it into the Studio overlay (or a sibling file) for `discovering-source-schema` to consume as a hint. The plugin would have to opt in.
-
-### 4.7 Spec-to-code divergence flags
-
-- **KV mode is in the spec, gated off in code.** Spec reads as if KV mode is shipped; code returns 501 (`connection-submit.ts:79`). Either the spec should mark Phase-B-only sections, or KV mode should be wired through.
-- **`Domain Settings → Source Connections` page is in the spec** as a read-only viewer with Test / Test All. Backend endpoints exist (`router.ts:120-193`); frontend `DomainSourceConnectionsPage` directory exists (`src/features/sources/components/`) but **wasn't enumerated by `ls` earlier** — needs investigation to confirm it's wired up end-to-end.
-- **Spec says "harness command in the intent UI" via slash entry.** That's now `/add-source` (the chat composer intercept, per commit `3270ce60`). Confirms alignment.
+### Error-surface mismatch
+- Studio's `SandboxResultCategory` enum: `pass | invalid_credentials | source_unreachable | connector_error | timeout | sandbox_setup_failed`.
+- `discovering-source-schema` error vocabulary: `OBJECT_NOT_FOUND` (import fail), `SOURCE_AUTH_FAIL` (auth fail).
+These are disjoint label spaces for the same underlying failure modes. The agent cannot deterministically translate a Studio re-test failure into a SKILL error code without a mapping table.
 
 ---
 
-## 5. Action items
+## 7. Action items
 
-### P0
+Priority: **P1** = blocks a green path; **P2** = removes duplicate work; **P3** = polish.
 
-#### A1. Decide KV mode posture — close the spec/code gap
+### P1 — Fix scaffold gate for VD-2071 section axis
+- **Side:** plugin
+- **File / skill:** `plugins/vibedata-data-engineering/skills/scaffolding-duckdb-workspace/SKILL.md` (and fabric sibling)
+- **What:** loosen the gate to accept either `[sources.<name>.<connector>]` OR `[sources.<name>.<entryPoint>]`. Or: parse the overlay's `entry_point` and check exactly the section Studio wrote.
+- **Why:** Studio's `sectionsForWrite()` (`dlt-config-toml.ts:60-70`) emits one section per `kind`; the literal-`<connector>` check in SKILL Invariants assumes legacy dual-write. With `kind='source'` and `entryPoint !== connector`, a valid connection will fail the gate.
 
-- Side: **Studio**
-- File: `docs/functional/source-connection-setup/README.md` (mark KV sections as Phase B), `src/server/modules/source-connections/helpers/connection-submit.ts:79-89` (when KV ships, remove the gate and wire Epic 10's KV provider)
-- What to do: Either (a) annotate the spec with `Phase A` / `Phase B` markers on every KV-mode mention so readers know the 501 is intentional, or (b) prioritise the Studio-aware dlt KV provider and ship Phase B.
-- Why: The spec currently overstates capability. An FSA in a KV-mode domain hits a hard 501 only after filling the entire form. This is the clearest single divergence between Studio's own spec and its own code.
+### P2 — Persist sandbox-test resource list into `[studio.sources.<name>]`
+- **Side:** Studio
+- **File:** `src/server/modules/source-connections/helpers/dlt-config-toml.ts` (writer); `helpers/sandbox-test-runner.ts` (already produces the data)
+- **What:** add `discovered_resources = ["…", "…"]` to the overlay when the sandbox test returned them.
+- **Why:** `discovering-source-schema` SKILL.md frontmatter explicitly walks every `[studio.sources.*]` and produces resource rows. The list is already discovered at submit and discarded (`SandboxRunResult.resources?`, `sandbox-test-runner.ts:84-94`). Persisting it lets the discovery skill skip a full re-introspection.
 
-#### A2. Persist the Test Connection resource list into the Studio overlay
+### P2 — Pre-seed Pipeline Inventory stub at intent-create time
+- **Side:** both
+- **File / skill:** Studio's `intents/helpers/dlt-init.ts` could emit a stub; `managing-intent-design-docs` SKILL.md procedure step 4 ("Write bite-sized steps") could read the stub.
+- **What:** when `ensureConnectorsForIntent()` runs, append a placeholder Pipeline Inventory row per connection (`name`, `schema`, `connector`, `entry_point`) into `design.md` if it exists.
+- **Why:** the data-engineer agent (`agents/data-engineer.md`) requires `design.md` to have a `Pipeline Inventory` section before any build phase. Studio knows the connections at intent creation; the agent re-discovers them on first ingestion step.
 
-- Side: **Studio**
-- File: `src/server/modules/source-connections/helpers/dlt-config-toml.ts` (add a `[studio.sources.<name>.discovered]` table), `helpers/connection-submit.ts` (pass the parsed sentinel through), `helpers/sandbox-test-runner.ts` (already extracts; expose via the submit pre-check)
-- What to do: When Test Connection succeeds and `parseResourceSentinel` produced a list, store it under `[studio.sources.<name>.discovered]` so downstream consumers can read it without re-running discovery.
-- Why: Eliminates duplicate work between Studio's Test Connection and the plugin's `discovering-source-schema`. Lays groundwork for richer pre-population (cursor field, write disposition) without changing the form.
+### P3 — Document multi-connection workspace layout
+- **Side:** plugin
+- **File:** `_shared/references/playbooks/dlt-resource-conventions.md`
+- **What:** add a "Multi-connection workspaces" subsection: one `dlt.pipeline()` per `connection_name`, distinct `pipeline_name`, shared `pipelines_dir`, naming convention `<connection>_bronze`.
+- **Why:** `dlt-patterns.md` flags the same-name parallel-run anti-pattern but never reconciles it with Studio's N-connection-per-domain model.
 
-### P1
+### P3 — Cursor + write-disposition discovery hint (optional)
+- **Side:** Studio
+- **File:** `helpers/dlt-config-toml.ts`
+- **What:** allow the writer to record agent-supplied cursor field + write disposition once the discovery skill picks them, e.g. `[studio.sources.<name>.discovered]`.
+- **Why:** lets the next session resume `discovering-source-schema` without redoing inference. Gain is small unless N connections is large; the multi-session-resume playbook already covers basic resume via Inventory Status flips.
 
-#### A3. Add Studio→plugin Inventory bridge contract
+### P3 — Error-code mapping table
+- **Side:** both
+- **File:** Studio's `source-connections.types.ts`; plugin's `discovering-source-schema/SKILL.md` Invariants
+- **What:** publish a one-way mapping `SandboxResultCategory` → SKILL error code (`invalid_credentials` → `SOURCE_AUTH_FAIL`; `connector_error` → `OBJECT_NOT_FOUND`; etc.).
+- **Why:** makes the re-test surface (`POST /domains/.../connections/:name/test`) actionable inside the discovery skill's halt conditions.
 
-- Side: **Both**
-- Files: Studio — `src/server/modules/source-connections/helpers/dlt-config-toml.ts`; Plugin — `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md`
-- What to do: Define a stable shape for `[studio.sources.<name>.discovered]` (resources, optional cursor_hint, optional schema_contract_hint) and have `discovering-source-schema` look for it first, then fall back to live discovery. Plugin must treat the overlay as advisory, not authoritative.
-- Why: Without an explicit bridge, every plugin run re-discovers what the harness already discovered, and the two answers can disagree. Also gives a future home for profiling output (`06` P0).
-
-#### A4. Make connector init result observable instead of fire-and-forget
-
-- Side: **Studio**
-- File: `src/server/modules/source-connections/helpers/connection-submit.ts:167-176` (currently `setImmediate(...)` swallowing init failures into `logger.warn`)
-- What to do: Track init status on the intent (or in the response with a follow-up endpoint) so the FSA learns within seconds if `dlt init` or `pip install` failed, rather than discovering it only when the plugin's scaffolding skill chokes on a missing `sources/<connector>/__init__.py`.
-- Why: A failed background init makes the plugin's first scaffolding/run skill fail with a generic "module not found" — far from the cause. Either make the submit response carry an init job id, or queue a domain notification.
-
-#### A5. Surface domain credential mode in the frontend before Step 1
-
-- Side: **Studio** (frontend)
-- File: `src/features/source-connections/components/SourceConnectionHarness/` (Step 1 entry)
-- What to do: If the domain is in KV mode while Phase B is not shipped, block harness open with a clear banner instead of letting the FSA fill 3 steps + Test Connection.
-- Why: Quality-of-life; complements A1.
-
-### P2
-
-#### A6. Symmetric error vocabulary between harness Test Connection and plugin dlt runs
-
-- Side: **Both**
-- File: Studio — `src/server/modules/source-connections/helpers/sandbox-test-runner.ts` (categorisation); Plugin — `plugins/vibedata-data-engineering/skills/running-dlt-in-duckdb-sandbox/SKILL.md` and `running-dlt-in-fabric-sandbox/SKILL.md`
-- What to do: Document the six categories (`pass`, `invalid_credentials`, `source_unreachable`, `connector_error`, `timeout`, `sandbox_setup_failed`) in both places; have the plugin's sandbox-runner skills classify dlt exceptions into the same buckets when reporting failures.
-- Why: Lets the FSA build a single mental model of "what can go wrong with this source" across the harness and the live runs.
-
-#### A7. Cross-link `medallion-guardrails.md` from `dlt-config-toml.ts` writer
-
-- Side: **Studio**
-- File: `src/server/modules/source-connections/helpers/dlt-config-toml.ts` header comment
-- What to do: Add a one-line reference to the plugin's `medallion-guardrails.md` Bronze "Must NOT" rules so the next person editing the writer sees why connection-only ≠ transform.
-- Why: The writer is the entry point that defines bronze layout; current comment focuses on TOML mechanics, not bronze invariants.
-
-#### A8. Investigate Domain Settings viewer wiring
-
-- Side: **Studio**
-- File: `src/features/sources/components/DomainSourceConnectionsPage/` (existence unverified from `ls`)
-- What to do: Confirm the read-only viewer is fully wired to `GET /api/v1/source-connections/domains/:domainId/connections` and the Test / Test All buttons. **Needs investigation** — couldn't confirm in this pass.
-- Why: Spec mandates it as part of the flow; broken viewer = silent regression.
+### Follow-up — Verify Fabric harness env injection
+- **Side:** Studio
+- **What:** confirm intent harness pre-hook for OpenHands runs in Fabric domains injects `FAB_TOKEN*`, `VD_STUDIO_USER_ID`, `EPHEMERAL_*` as `running-dlt-in-fabric-sandbox/SKILL.md` requires.
+- **Why:** not verified by this read; KV mode + Fabric are paired in Phase B (Epic 10).
 
 ---
 
-## Notes on what I couldn't determine
+## 8. Honest uncertainty
 
-- I did not read all 22 KB of `connector-source-cache.ts`, the full 23 KB of `sandbox-test-runner.ts`, or the 80 KB `docs/design/source-connection-setup/implementation-approach.md`. The action items above hold under reasonable assumptions about those files, but specifics like the exact stdout sentinel format and the dlt-venv bootstrap path are not pinned down here.
-- I did not directly inspect the plugin `SKILL.md` files on GitHub; conclusions about plugin behaviour are drawn from `02-new-version.md`, `05-best-practice-vs-plugin-patterns.md`, and `06-plugin-gaps-and-action-items.md` which I authored earlier in this analysis batch.
-- The `DomainSourceConnectionsPage` UI was not enumerated by my `ls` calls — flagged as "needs investigation" in A8.
-- The frontend wizard step components were listed but not read line-by-line. Step-1 pivot logic and Step-3 KV picker behaviour are assumed to match the spec, not verified against `use-source-wizard.ts`.
+- The `entry_point` key in `[studio.sources.<name>]` is **not mentioned by any SKILL.md** I read. Studio's writer comment (`dlt-config-toml.ts:114-118`) claims it "drives downstream consumers — sandbox-test-runner re-tests, the discovering-source-schema and generating-dlt-pipeline skills". I could not find this read in either skill's frontmatter or Invariants. It is plausible the discovery skill *does* read it (it has to know which `@dlt.source` to import) but the SKILL.md does not say so.
+- The `auth_method` key is similarly unreferenced by any SKILL.md — it appears to be a display hint for Studio's Settings viewer "re-pick" path (per the VD-1886 comment in `dlt-config-toml.ts:100`), not a pipeline runtime input.
+- I did not read every action-item-relevant file end-to-end (e.g. `master-secrets.ts` was only partially examined; `sandbox-test-runner.ts` only the first 200 lines). Conclusions about secret-file behavior rely on `copy-master-secrets.ts` and SKILL invariants, not a full audit of the writer.
+- The plugin version on `main` may have advanced since this read; tag/commit hash was not pinned.
