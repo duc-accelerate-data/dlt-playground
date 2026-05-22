@@ -103,18 +103,22 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 **Priority** — Immediate
 
-**Home** — skill body
+**Home** — playbook, skill body
 
-**What it is** — The skill that audits a generated pipeline today just says "run deterministic audit checks". We replace that with an enumerated checklist: is a schema contract set on every resource; are there no transforms in the bronze pipeline file; does each resource's write disposition match its Inventory row; are all override calls commented; is `allow_external_schedulers=True` set on incremental resources; is `max_table_nesting` set; is the attribution window wired; does the pipeline carry the git commit ID at runtime.
+**What it is** — Two coordinated edits. First, a new playbook enumerates the audit rules: a schema contract is set on every resource; no transforms in the bronze pipeline file; each resource's write disposition matches its Inventory row; all override calls are commented; `allow_external_schedulers=True` is set on incremental resources; `max_table_nesting` is set; the attribution window is wired; the pipeline tags the git commit ID at runtime. Each rule entry names the symptom it catches and a severity. Second, the audit skill keeps only the behavioural contract: load the playbook, run every rule, emit per-rule pass/fail findings (not a summary verdict), halt with a known code on critical failures.
 
-**Why we need it** — Today the audit is a black box. A reviewer reading the skill can't tell whether it catches any of the gaps above. Enumerating the rules turns the audit from "trust me" into a reviewable list and lets us extend it deliberately.
+**Why we need it** — Today the audit is a black box — the skill says "run deterministic audit checks" with no enumeration. A reviewer reading the skill can't tell whether it catches any of the rules above. Splitting the rule list out into a playbook makes the audit reviewable, lets us extend the rule set without rewriting the skill body, and gives the rule list one canonical home that other items extend by adding rule entries (rather than asking the skill body to grow).
 
-**Where it lives in the plugin** — Rewrite `plugins/vibedata-data-engineering/skills/evaluating-dlt-pipeline/SKILL.md` with an explicit numbered checklist. The skill's output should report pass/fail per rule, not a summary verdict.
+**Where it lives in the plugin** —
+- New playbook at `plugins/vibedata-data-engineering/_shared/references/playbooks/dlt-pipeline-audit-rules.md`. Each rule entry has: name, what it checks, severity, halt code.
+- Rewrite `plugins/vibedata-data-engineering/skills/evaluating-dlt-pipeline/SKILL.md` to cite the playbook and carry the behavioural contract — "run every rule in the playbook, emit per-rule findings, halt on `severity: critical`."
 
 **What "done" looks like**
-- The skill lists each rule as its own bullet.
+- The playbook exists, with one entry per rule and each entry carrying its severity.
+- The skill cites the playbook in References, not in prose.
 - The skill emits one finding per rule, even on success.
 - A reviewer can see at a glance which rules ran and which didn't.
+- Other items that need a new audit rule add an entry to the playbook, not to the skill body.
 
 **Source** — 06 §5 item 2.
 
