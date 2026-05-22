@@ -1,17 +1,17 @@
-# Studio's Source-Connection Setup vs the Data-Engineering Toolkit
+# Studio's Source-Connection Setup vs the Data-Engineering Plugin
 
-> **Rewritten on 2026-05-21** by reading the toolkit's actual instruction files (not earlier summaries) and Studio's config writer and submit pipeline directly. Two corrections versus the previous draft:
+> **Rewritten on 2026-05-21** by reading the plugin's actual instruction files (not earlier summaries) and Studio's config writer and submit pipeline directly. Two corrections versus the previous draft:
 >
-> 1. **The earlier claim that the toolkit's tasks "don't read Studio's overlay section" was wrong.** The task that discovers a source's schema explicitly describes itself as introspecting the section that Studio writes into the configuration file (`[studio.sources.*]` in `.dlt/config.toml`). That section is the agreed handoff point between Studio and the toolkit — Studio writes it, the toolkit reads it. The actual gap is different (and narrower).
+> 1. **The earlier claim that the plugin's tasks "don't read Studio's overlay section" was wrong.** The task that discovers a source's schema explicitly describes itself as introspecting the section that Studio writes into the configuration file (`[studio.sources.*]` in `.dlt/config.toml`). That section is the agreed handoff point between Studio and the plugin — Studio writes it, the plugin reads it. The actual gap is different (and narrower).
 > 2. **Credential storage in a secrets vault is deferred.** Studio's submit handler hard-rejects any domain that isn't on the "local credentials" mode (the relevant file is `helpers/connection-submit.ts`, lines 79–89; it returns a 501 with the message "Phase A ships local mode only; the vault mode arrives later"). Every vault-mode row in the gap matrix below is marked **deferred** and the analysis only covers the local credential path.
 
 ---
 
 ## 1. What this analysis reads
 
-### From the toolkit's instruction files
+### From the plugin's instruction files
 
-Pulled raw via the GitHub API against the toolkit's main branch. The files are inside `plugins/vibedata-data-engineering/skills/<name>/SKILL.md`. The tasks read:
+Pulled raw via the GitHub API against the plugin's main branch. The files are inside `plugins/vibedata-data-engineering/skills/<name>/SKILL.md`. The tasks read:
 
 - Classifying the user's request
 - Discovering a source's schema
@@ -27,7 +27,7 @@ Pulled raw via the GitHub API against the toolkit's main branch. The files are i
 - Validating fixture replay and golden data
 - Managing intent design docs
 
-### From the toolkit's shared folder
+### From the plugin's shared folder
 
 - The dlt patterns catalogue (118 entries).
 - Three playbooks: dlt resource conventions, ingestion test tiers, medallion guardrails.
@@ -80,7 +80,7 @@ A three-step modal opened from the chat composer (the user types `/add-source`):
 - The connector registry table holds one row per supported source repo. It is seeded with the dlt verified-sources repo.
 - **There is no database row per individual connection.** A connection's identity lives only in the dlt config file on the intent branch — specifically, in the Studio-written section header.
 
-### The config-file handoff (the canonical Studio-to-toolkit contract)
+### The config-file handoff (the canonical Studio-to-plugin contract)
 
 When the user submits, the config-writer appends to the intent clone's dlt config file. The shape it appends:
 
@@ -98,7 +98,7 @@ When the user submits, the config-writer appends to the intent clone's dlt confi
 [sources.<name>.<section>.credentials]
 <credential non-secret> = <value>
 
-# The Studio overlay section — dlt ignores it; the toolkit's discovery task reads it.
+# The Studio overlay section — dlt ignores it; the plugin's discovery task reads it.
 [studio.sources.<name>]
 connector = "<connector>"
 connector_source = "<connectorSource>"   # the registry row name, e.g. "dlt-verified"
@@ -115,17 +115,17 @@ In vault mode the writer would also emit a `[studio.sources.<name>.secrets]` blo
 - The master secrets writer appends each connection's secrets to a domain-scoped secrets file (mode 0600, never committed to git).
 - At submit time, the master-secrets copy helper copies that file into the intent clone, where dlt reads it at runtime.
 
-### Where the toolkit enters the picture
+### Where the plugin enters the picture
 
 After submit:
 
 1. The submit handler fires a deferred call to a background helper that materialises the connector code under the intent clone.
 2. An idempotent helper repeats the same materialisation at intent creation or resume, iterating every Studio overlay block it finds in the config file.
-3. The toolkit's coordinator runs through: classify the user's request → manage design docs → set up the workspace (DuckDB or Fabric) → walk the ingestion steps.
+3. The plugin's coordinator runs through: classify the user's request → manage design docs → set up the workspace (DuckDB or Fabric) → walk the ingestion steps.
 
 ---
 
-## 3. The handoff — what Studio writes vs what the toolkit's tasks actually read
+## 3. The handoff — what Studio writes vs what the plugin's tasks actually read
 
 Quotes are verbatim from each task's description or invariants.
 
@@ -135,7 +135,7 @@ Quotes are verbatim from each task's description or invariants.
 | The Studio overlay block (as a gate) | The DuckDB workspace setup task | *"for every `[studio.sources.<name>]` entry in `.dlt/config.toml`, the matching `[sources.<name>.<connector>]` block exists and the secret keys the connector declares are present (key presence only — do not read values). Any gap halts the scaffold; the user must complete `/add-source` and re-run."* (invariants) |
 | The schema (dataset name) field on the overlay | The resource-conventions playbook (used by pipeline generation) | *"Dataset name (DuckDB schema): whatever `[studio.sources.<connection_name>].schema` declares in `.dlt/config.toml` — default `src_<connection_name>` when the overlay omits it. Read this value; never invent a schema name."* |
 | The connector and connector_source fields | Read by Studio's own parser and dlt-init helper. **No task cites them by name.** | — |
-| The entry_point field | **No task mentions this key.** Studio keeps it for its own re-test path; the toolkit's pipeline code doesn't need it because dlt resolves resources by Python symbol. | — |
+| The entry_point field | **No task mentions this key.** Studio keeps it for its own re-test path; the plugin's pipeline code doesn't need it because dlt resolves resources by Python symbol. | — |
 | The auth_method field | **No task mentions this key.** A display hint for Studio's settings viewer "re-pick" path. | — |
 | The dlt-native non-secret block | Read by dlt at runtime, not by any task; the workspace-setup task asserts its presence (see row 2). | — |
 | The non-secret members of the credentials sub-section | Read by dlt at runtime, indirectly. The schema-discovery task's invariant says: *"Credentials resolve through dlt's stock provider chain (.dlt/secrets.toml, env, KV). Do not read env files or arbitrary credential keys yourself."* | — |
@@ -219,14 +219,14 @@ The order follows the coordinator's natural flow.
 
 Severity legend: **B** = the pipeline build halts or produces wrong output; **F** = needs a manual workaround; **N** = avoidable duplicate work.
 
-| # | Capability | What Studio does | What the toolkit task expects | Gap | Severity |
+| # | Capability | What Studio does | What the plugin task expects | Gap | Severity |
 |---|---|---|---|---|---|
 | 1 | Enumerate connections | Writes a Studio overlay block per submit. | The schema-discovery task introspects every overlay block. | None — contract honoured. | — |
 | 2 | Destination schema (dataset name) | Writes the schema field under the overlay. | The resource-conventions playbook mandates reading it verbatim. | None — explicit read. | — |
 | 3 | Connector module path | Writes the connector and connector-source fields. | No task cites these by name; Studio's own parser and dlt-init helper consume them. | None — Studio's harness is the consumer. | — |
-| 4 | Entry-point identity | Writes the entry-point field. | No task reads it; dlt resolves resources by Python symbol at runtime. | None for the toolkit; Studio keeps it for re-test paths. | — |
+| 4 | Entry-point identity | Writes the entry-point field. | No task reads it; dlt resolves resources by Python symbol at runtime. | None for the plugin; Studio keeps it for re-test paths. | — |
 | 5 | Which section header axis is used (connector name vs entry-point name) | One section per kind; legacy callers dual-write. | The workspace-setup task only checks the literal connector-name section. | The scaffold gate may report a missing block when a source-kind connector writes under the entry-point name and that name differs from the connector. | **F** |
-| 6 | Credentials sub-section | Emitted only for dataclass-shaped credentials; legacy dual-write otherwise. | dlt runtime resolves credentials; no task cares about the shape axis. | None for the toolkit. | — |
+| 6 | Credentials sub-section | Emitted only for dataclass-shaped credentials; legacy dual-write otherwise. | dlt runtime resolves credentials; no task cares about the shape axis. | None for the plugin. | — |
 | 7 | Secret values | Local mode: master secrets file written and copied into the clone. | The DuckDB sandbox task requires the secrets file populated. | None — covered. | — |
 | 8 | Reusing the discovered resource list | The pre-submit sandbox test returns a resource list but Studio does NOT persist it. | The schema-discovery task re-introspects from scratch every time. | Duplicate work: the same resource list is discovered twice; the first list is thrown away. | **N** |
 | 9 | Pre-seeding the Pipeline Inventory | Studio doesn't seed any inventory row stub. | The design-docs task requires Pipeline Inventory rows before the schema-discovery task can fill them. | The assistant has to bootstrap rows from raw config on every fresh intent. | **N** |
@@ -240,20 +240,20 @@ Severity legend: **B** = the pipeline build halts or produces wrong output; **F*
 | 17 | Vault reachability gate | — | — | **Vault mode is deferred — local credential mode only.** | — |
 | 18 | Bronze-adequacy handoff | — | The source-profiling task runs AFTER bronze lands, not against Studio's pre-landing introspection. | None — the handoff path is the filesystem, not the config file. | — |
 | 19 | Fabric harness env injection | Not verified in this rewrite. | The Fabric sandbox task requires Fabric tokens injected by the harness pre-hook. | Follow-up — Fabric pairing belongs with the vault-mode phase. | — |
-| 20 | Connector-source registry visibility | Studio has a registry table; not visible to the toolkit. | Tasks assume the connector code is already materialised; Studio's dlt-init helper enforces that. | None — handover is via the filesystem. | — |
+| 20 | Connector-source registry visibility | Studio has a registry table; not visible to the plugin. | Tasks assume the connector code is already materialised; Studio's dlt-init helper enforces that. | None — handover is via the filesystem. | — |
 
 ---
 
 ## 6. Cross-cutting issues (local mode only)
 
 ### Secrets passthrough
-Local mode is clean. The master file is the source of truth; the copy helper is idempotent and the file permissions are tight. The task invariant *"Do not read env files or arbitrary credential keys yourself"* is honoured because the toolkit reads via dlt's resolution chain, never directly. **No gap.**
+Local mode is clean. The master file is the source of truth; the copy helper is idempotent and the file permissions are tight. The task invariant *"Do not read env files or arbitrary credential keys yourself"* is honoured because the plugin reads via dlt's resolution chain, never directly. **No gap.**
 
 ### Source-type coverage
-Studio's functional spec scopes to API connectors; files and databases route through Fabric Data Factory. The toolkit's ingestion cluster is API-shaped (it targets dlt verified sources). Match is clean.
+Studio's functional spec scopes to API connectors; files and databases route through Fabric Data Factory. The plugin's ingestion cluster is API-shaped (it targets dlt verified sources). Match is clean.
 
 ### Incremental-config handover
-Studio captures none of: cursor field, cursor start value, write disposition. The toolkit requires all three on every inventory row. Severity **F** — covered by the assistant re-deriving from connector docs, but it is repeated work per intent.
+Studio captures none of: cursor field, cursor start value, write disposition. The plugin requires all three on every inventory row. Severity **F** — covered by the assistant re-deriving from connector docs, but it is repeated work per intent.
 
 ### Profiling handoff
 The source-profiling task is transformation-side; it runs after bronze lands, against landed tables, not against Studio's pre-landing introspection. No handoff exists; none is needed.
@@ -270,7 +270,7 @@ These are disjoint label spaces for the same underlying failure modes. The assis
 Priority legend: **important** = blocks a green path; **secondary** = removes duplicate work; **polish** = nice-to-have.
 
 ### Important — Fix the scaffold gate for the section-axis change
-- **Side:** the toolkit.
+- **Side:** the plugin.
 - **What:** loosen the workspace-setup gate to accept the section under either the connector name OR the entry-point name. Or: parse the overlay's entry-point field and check exactly the section Studio wrote (the writer is in `dlt-config-toml.ts`, lines 60–70).
 - **Why:** Studio's writer emits one section per connector kind; the literal connector-name check assumes legacy dual-write. With a source-kind connector whose entry point differs from the connector folder, a valid connection will fail the gate.
 
@@ -285,7 +285,7 @@ Priority legend: **important** = blocks a green path; **secondary** = removes du
 - **Why:** the coordinator requires the design doc to have a Pipeline Inventory section before any build step. Studio knows the connections at intent creation; the assistant re-discovers them on the first ingestion step today.
 
 ### Polish — Document multi-connection workspace layout
-- **Side:** the toolkit.
+- **Side:** the plugin.
 - **What:** add a "multi-connection workspaces" section to the resource-conventions playbook: one `dlt.pipeline()` per connection name, distinct pipeline names, shared pipelines directory, and a naming convention (`<connection>_bronze`).
 - **Why:** the patterns catalogue flags the same-name parallel-run anti-pattern but never reconciles it with Studio's N-connections-per-domain model.
 
@@ -311,4 +311,4 @@ Priority legend: **important** = blocks a green path; **secondary** = removes du
 - The entry-point field on the Studio overlay is **not mentioned by any task instruction file** I read. Studio's writer comment claims it "drives downstream consumers — the sandbox-test runner's re-tests, and the schema-discovery and pipeline-generation tasks". I could not find this read in either task's description or invariants. It is plausible the discovery task *does* read it (it has to know which `@dlt.source` to import) but the task instructions don't say so.
 - The auth-method field is similarly unreferenced by any task instruction file — it appears to be a display hint for Studio's settings viewer "re-pick" path, not a pipeline runtime input.
 - I did not read every action-item-relevant file end-to-end. The master-secrets writer was only partially examined, and the sandbox-test runner only its first 200 lines. Conclusions about secret-file behaviour rely on the copy helper and the task invariants, not a full audit of the writer.
-- The toolkit version on the main branch may have advanced since this read; no commit hash was pinned.
+- The plugin version on the main branch may have advanced since this read; no commit hash was pinned.

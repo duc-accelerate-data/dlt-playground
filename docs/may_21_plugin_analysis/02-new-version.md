@@ -2,7 +2,7 @@
 
 [Source tree](https://github.com/accelerate-data/vibedata-data-engineering/tree/main/plugins/vibedata-data-engineering)
 
-## What the toolkit says about itself
+## What the plugin says about itself
 
 The manifest (`.claude-plugin/plugin.json`) shows two notable changes:
 
@@ -10,7 +10,7 @@ The manifest (`.claude-plugin/plugin.json`) shows two notable changes:
 - The version was reset from `5.8.0` to **`0.1.3`**.
 - The description now reads: *"med variant: balanced practitioner-pattern footprint for common production work."*
 
-The toolkit is being packaged as one of a family. "Low" and "high" siblings probably exist or are planned.
+The plugin is being packaged as one of a family. "Low" and "high" siblings probably exist or are planned.
 
 ## Assistant roles
 
@@ -44,7 +44,7 @@ Same 29 task folders, same names. Their headers (the brief descriptions that dec
 
 ## Supporting library
 
-**Removed completely.** All the contract schemas, error-code catalogues, readiness checklists, and project templates are gone from the toolkit.
+**Removed completely.** All the contract schemas, error-code catalogues, readiness checklists, and project templates are gone from the plugin.
 
 ## Helper scripts
 
@@ -57,7 +57,7 @@ The new `_shared/` folder replaces both the old shared references and the delete
 - An index file at the top makes the contents discoverable.
 - A `conventions/` folder collects seven style guides (git workflow, logging, model naming, runtime audit columns, instruction-file style, SQL style, YAML style).
 - A `playbooks/` folder collects fifteen longer how-to documents. New entries include test-tier definitions for both data tests and ingestion tests, medallion guardrails, and multi-session resume rules.
-- A **new** `patterns/` folder with two files (one for dbt patterns, one for dlt patterns). These are tagged `variant: med` and are the per-variant payload — what differs between the "low", "med", and "high" toolkits.
+- A **new** `patterns/` folder with two files (one for dbt patterns, one for dlt patterns). These are tagged `variant: med` and are the per-variant payload — what differs between the "low", "med", and "high" plugins.
 - A `templates/` folder with six templates, including a template for the new step-by-step plan file and a template for new automated tasks. The old per-target template trees are gone.
 
 ## How it all flows

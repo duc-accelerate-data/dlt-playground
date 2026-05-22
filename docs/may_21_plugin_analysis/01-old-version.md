@@ -2,13 +2,13 @@
 
 [Source tree](https://github.com/accelerate-data/vibedata-data-engineering/tree/e2a5a7bc85dc87147d70e0a1e9c1fe088864188c/plugins/vibedata-data-engineering)
 
-## What the toolkit says about itself
+## What the plugin says about itself
 
-The manifest file (`.claude-plugin/plugin.json`) names the toolkit `vibedata-data-engineering` at version `5.8.0`. Its description leads with the **six-phase coordinator flow**: Intake → Workspace → Requirements → Design → Build → Publish. That ordering is the headline feature.
+The manifest file (`.claude-plugin/plugin.json`) names the plugin `vibedata-data-engineering` at version `5.8.0`. Its description leads with the **six-phase coordinator flow**: Intake → Workspace → Requirements → Design → Build → Publish. That ordering is the headline feature.
 
 ## Assistant roles (9 of them)
 
-These are the specialised assistant prompts the toolkit ships with.
+These are the specialised assistant prompts the plugin ships with.
 
 | Role | What it does |
 |---|---|
@@ -67,7 +67,7 @@ A shared `references` folder under the automated-tasks directory holds reference
 
 ## The auto-start helper
 
-The toolkit registers a small script that runs whenever a new session begins (and on reset or compact). The script:
+The plugin registers a small script that runs whenever a new session begins (and on reset or compact). The script:
 
 - Pastes the classification instructions straight into the session as high-priority context.
 - If the current folder has a domain configuration file (`vd-domain.yml`), pastes that in too — so the coordinator never has to ask the user where to send the data.
@@ -84,7 +84,7 @@ A `lib/` folder ships a lot of supporting material:
 
 ## Helper scripts
 
-A small `scripts/` folder with bash and Python utilities for authoring and validating Fabric notebooks, and for checking that the toolkit's own manifest files are valid and properly version-bumped.
+A small `scripts/` folder with bash and Python utilities for authoring and validating Fabric notebooks, and for checking that the plugin's own manifest files are valid and properly version-bumped.
 
 ## How it all flows
 
