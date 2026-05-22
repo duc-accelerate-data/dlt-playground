@@ -237,21 +237,27 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 **Priority** — Immediate
 
-**Home** — skill body, design-doc template
+**Home** — skill body, design-doc template, template file
 
-**What it is** — The discovery skill writes an `entry_point` column to the Pipeline Inventory recording the module path or callable the generated pipeline will import. The generation skill reads it and halts with `ENTRY_POINT_MISSING` if absent. The evaluator (item 4) checks the entry point resolves. The old plugin had this chain wired across both skills; the refactor broke it by dropping the column.
+**What it is** — Three coordinated changes covering the same broken contract. (a) The discovery skill writes an `entry_point` column to the Pipeline Inventory recording the actual top-level decorated symbol the generated pipeline will import — the user's pick from the source-connection form, persisted by Studio at `[studio.sources.<name>].entry_point`. (b) The generation skill reads it and halts with `ENTRY_POINT_MISSING` if absent. (c) The rendered pipeline template stops deriving its import name as `<connector>_source` (a synthetic name that exists for about half of dlt-verified connectors and fails for the other half) and reads `{{ENTRY_POINT}}` from the inventory instead. The evaluator (item 4) checks the entry point resolves at import time.
 
-**Why we need it** — Without the chain, generation either guesses the import path (wrong half the time) or hard-codes one (brittle). The discovery step is the right time to capture it because the assistant has just inspected the source's module layout.
+**Why we need it** — The old plugin had this chain wired across both skills and the template. The refactor broke it in two places at once. The skill body half: the discovery and generation skills dropped all `entry_point` references. The template half: the rendered pipeline still derives `<connector>_source` from the connector folder name, which fails on github, zendesk, notion, jira, matomo, hubspot, mongodb, mongodb, chess, pokemon, asana_dlt, shopify_dlt, and others — roughly 17 of 28 verified connectors generate code that won't import on the first try. The agent then improvises around the failure (the anti-pattern recent milestones have been hardening against), wastes turn budget, and sometimes edits the vendored connector module to make the name "match" — which gets wiped on the next workspace scaffold.
 
-**Where it lives in the plugin** — Add an `entry_point` column to the design-doc template (same template item 38 updates). Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to write the column. Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to read it and halt with `ENTRY_POINT_MISSING` when blank.
+**Where it lives in the plugin** —
+- Add an `entry_point` column to the design-doc template (same template item 38 updates).
+- Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to write the column.
+- Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to read it and halt with `ENTRY_POINT_MISSING` when blank. Also update Step 2's template-variable list to document `{{ENTRY_POINT}}` as the canonical signal coming from Pipeline Inventory.
+- Update the unified pipeline template (DuckDB and Fabric variants) so its import line reads `from {{SOURCE_MODULE}} import {{ENTRY_POINT}}` and the `.with_args(...)()` call uses `{{ENTRY_POINT}}`, not the synthetic `<connector>_source` name. **Note:** the template path cited by VD-2073 (`lib/templates/{duckdb,fabric}/ingestion/pipeline.py.template`) returns 404 on `main` — the unified template either moved during the refactor or was deleted. Locate it before editing; if it's gone, that's a separate "restore the template" sub-step the fix has to surface first.
 
 **What "done" looks like**
 - The Pipeline Inventory template carries an `entry_point` column.
 - Discovery populates the column or halts.
 - Generation halts with `ENTRY_POINT_MISSING` when the column is empty.
-- The evaluator confirms the entry point imports cleanly.
+- The rendered pipeline imports `{{ENTRY_POINT}}` directly — no `<connector>_source` derivation anywhere.
+- A smoke test runs against a non-`<connector>_source` connector (e.g. github with `github_reactions`, zendesk with `zendesk_support`) and the generated pipeline imports cleanly without agent recovery.
+- The evaluator confirms the entry point imports.
 
-**Source** — old-commit `e2a5a7b` `discovering-source-schema/SKILL.md` lines 44–66 and `generating-dlt-pipeline/SKILL.md` lines 1–67.
+**Source** — old-commit `e2a5a7b` `discovering-source-schema/SKILL.md` lines 44–66 and `generating-dlt-pipeline/SKILL.md` lines 1–67. Template half from VD-2073 (Linear), which describes the full connector-by-connector failure mode and lists the 17/28 affected sources.
 
 ---
 
