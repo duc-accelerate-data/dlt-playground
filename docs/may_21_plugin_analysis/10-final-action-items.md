@@ -255,28 +255,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 11. Fabric destination env-var table and snippet
-
-**Priority** — Immediate
-
-**Home** — playbook
-
-**What it is** — Running a pipeline against Fabric needs `EPHEMERAL_WORKSPACE_ID`, `EPHEMERAL_LAKEHOUSE_ID`, and the canonical destination call shape `dlt.destinations.fabric(workspace_id=..., lakehouse_id=...)`. The old Fabric sandbox skill carried a table of the env vars, where Studio sets them, and the exact destination call. The refactor dropped the table and left the skill with a vague "set the environment".
-
-**Why we need it** — Without the table, agents either invent variable names or pull connection details from the wrong place (Studio sets these per workspace; the agent shouldn't see them as static config). The detail is reference material — it belongs in a playbook.
-
-**Where it lives in the plugin** — Add a new entry to `_shared/references/playbooks/fab-cli-cheatsheet.md` (or a sibling playbook) covering the env-var table, where Studio sets each variable, and the canonical destination call. `plugins/vibedata-data-engineering/skills/running-dlt-in-fabric-sandbox/SKILL.md` cites it.
-
-**What "done" looks like**
-- The Fabric playbook contains the env-var table and the destination snippet.
-- The Fabric sandbox skill cites the playbook.
-- A grep for `EPHEMERAL_WORKSPACE_ID` lands on the playbook entry.
-
-**Source** — old-commit `e2a5a7b` Fabric sandbox skill lines 13–44.
-
----
-
-### 12. `uv pip install` rule for the workspace venv
+### 11. `uv pip install` rule for the workspace venv
 
 **Priority** — Immediate
 
@@ -296,7 +275,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 13. YAML field-documentation shape (`source_ref:` vs synthesized)
+### 12. YAML field-documentation shape (`source_ref:` vs synthesized)
 
 **Priority** — Immediate
 
@@ -317,7 +296,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 14. Golden-data fenced JSON outcome block
+### 13. Golden-data fenced JSON outcome block
 
 **Priority** — Immediate
 
@@ -340,7 +319,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ## Soon
 
-### 15. `allow_external_schedulers=True` on incremental resources
+### 14. `allow_external_schedulers=True` on incremental resources
 
 **Priority** — Soon
 
@@ -362,7 +341,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 16. `max_table_nesting=2` and `row_order` decisions
+### 15. `max_table_nesting=2` and `row_order` decisions
 
 **Priority** — Soon
 
@@ -384,7 +363,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 17. Backfill as a separate pipeline
+### 16. Backfill as a separate pipeline
 
 **Priority** — Soon
 
@@ -405,7 +384,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 18. Load-outcome staging model
+### 17. Load-outcome staging model
 
 **Priority** — Soon
 
@@ -426,7 +405,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 19. Workspace dashboard handoff
+### 18. Workspace dashboard handoff
 
 **Priority** — Soon
 
@@ -446,7 +425,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 20. Reference the medallion-guardrails playbook from every dlt build skill
+### 19. Reference the medallion-guardrails playbook from every dlt build skill
 
 **Priority** — Soon
 
@@ -466,7 +445,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 21. Tag pipeline runs with the git commit ID
+### 20. Tag pipeline runs with the git commit ID
 
 **Priority** — Soon
 
@@ -487,7 +466,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 22. Pipeline documentation must include cursor, cadence, owner, blast radius
+### 21. Pipeline documentation must include cursor, cadence, owner, blast radius
 
 **Priority** — Soon
 
@@ -507,7 +486,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 23. Snapshot test for nested shapes
+### 22. Snapshot test for nested shapes
 
 **Priority** — Soon
 
@@ -528,7 +507,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 24. Resolve `raw_<system>` vs `src_<connection>` naming in writing
+### 23. Resolve `raw_<system>` vs `src_<connection>` naming in writing
 
 **Priority** — Soon
 
@@ -549,7 +528,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 25. `dev_mode=True` during sandbox iteration
+### 24. `dev_mode=True` during sandbox iteration
 
 **Priority** — Soon
 
@@ -572,7 +551,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ## Deferred
 
-### 26. Typed multi-auth credentials
+### 25. Typed multi-auth credentials
 
 **Home** — skill body
 
@@ -584,7 +563,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 27. Pydantic "is this model authoritative?" decision
+### 26. Pydantic "is this model authoritative?" decision
 
 **Home** — skill body
 
@@ -596,7 +575,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 28. Schema-change allow-list PR workflow
+### 27. Schema-change allow-list PR workflow
 
 **Home** — playbook, Studio code
 
@@ -608,7 +587,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 29. Operational-artefacts checklist (runbooks, freshness gates, drift alerts)
+### 28. Operational-artefacts checklist (runbooks, freshness gates, drift alerts)
 
 **Home** — playbook
 
@@ -620,7 +599,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 30. Find-a-better-connector gate
+### 29. Find-a-better-connector gate
 
 **Home** — skill body
 
@@ -632,7 +611,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 31. Bidirectional symmetric handoffs between tracks
+### 30. Bidirectional symmetric handoffs between tracks
 
 **Home** — coordinator
 
@@ -644,7 +623,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 32. Upstream-gap TODO discipline
+### 31. Upstream-gap TODO discipline
 
 **Home** — skill body
 
@@ -656,7 +635,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 33. Surface inventory-as-contract upstream
+### 32. Surface inventory-as-contract upstream
 
 **Home** — playbook (external)
 
@@ -666,17 +645,17 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 34. Surface two-stage schema-pinning gotcha upstream
+### 33. Surface two-stage schema-pinning gotcha upstream
 
 **Home** — playbook (external)
 
-**What it is** — Document in the research playbook that freezing tables at generation time raises a dlt validation error; tables can only be frozen after the first successful load. Same reason for deferral as item 33.
+**What it is** — Document in the research playbook that freezing tables at generation time raises a dlt validation error; tables can only be frozen after the first successful load. Same reason for deferral as item 32.
 
 **Source** — 08 §10 item 9.
 
 ---
 
-### 35. Surface fixture-replay-plus-golden upstream
+### 34. Surface fixture-replay-plus-golden upstream
 
 **Home** — playbook (external)
 
@@ -686,7 +665,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 36. Surface sandbox-vs-domain isolation upstream
+### 35. Surface sandbox-vs-domain isolation upstream
 
 **Home** — playbook (external)
 
@@ -696,7 +675,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 37. Pre-build source profiling
+### 36. Pre-build source profiling
 
 **Priority** — Deferred
 
@@ -719,11 +698,11 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 38. Attribution window on incremental resources
+### 37. Attribution window on incremental resources
 
 **Priority** — Deferred
 
-**Why deferred** — This is the *wiring and enforcement* half of attribution-window discipline (require the value on every inventory row, wire it into dlt's `lag` argument, audit both). The *detection* half — figuring out how far back a given source actually rewrites records — was deferred separately as item 37 (Pre-build source profiling), because detection cannot be done from passive sampling alone and the existing discovery skill explicitly forbids live source connections. Shipping this item without a way to determine the value would force a fallback: ask the user, use curated per-connector metadata, or default to a conservative window. All three are workable but each is a substantial design decision in its own right. Defer until either (a) item 37 lands and provides authoritative values, or (b) we commit to one of the fallback approaches and that fallback gets its own scoped item.
+**Why deferred** — This is the *wiring and enforcement* half of attribution-window discipline (require the value on every inventory row, wire it into dlt's `lag` argument, audit both). The *detection* half — figuring out how far back a given source actually rewrites records — was deferred separately as item 36 (Pre-build source profiling), because detection cannot be done from passive sampling alone and the existing discovery skill explicitly forbids live source connections. Shipping this item without a way to determine the value would force a fallback: ask the user, use curated per-connector metadata, or default to a conservative window. All three are workable but each is a substantial design decision in its own right. Defer until either (a) item 36 lands and provides authoritative values, or (b) we commit to one of the fallback approaches and that fallback gets its own scoped item.
 
 **Home** — design-doc template, skill body
 
@@ -742,7 +721,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 39. Named dev and prod destinations
+### 38. Named dev and prod destinations
 
 **Priority** — Deferred
 
@@ -765,6 +744,29 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
+### 39. Fabric destination env-var table and snippet
+
+**Priority** — Deferred
+
+**Why deferred** — Fabric is a production-target destination, not the day-one user-facing one. The first Studio user submits a source against DuckDB in their local sandbox; the Fabric path is exercised by CI runs and by domain promotions, where Studio's own harness already provisions the workspace and sets the env vars. An agent generating a fresh Fabric pipeline today *could* guess the variable names wrong, but the failure surfaces immediately on `dlt debug` — it doesn't ship a silently-broken build. Worth restoring once we have a Fabric-first user persona; until then the operational pain is concentrated in CI, not in the first-build experience.
+
+**Home** — playbook
+
+**What it is** — Running a pipeline against Fabric needs `EPHEMERAL_WORKSPACE_ID`, `EPHEMERAL_LAKEHOUSE_ID`, and the canonical destination call shape `dlt.destinations.fabric(workspace_id=..., lakehouse_id=...)`. The old Fabric sandbox skill carried a table of the env vars, where Studio sets them, and the exact destination call. The refactor dropped the table and left the skill with a vague "set the environment".
+
+**Why we need it** — Without the table, agents either invent variable names or pull connection details from the wrong place (Studio sets these per workspace; the agent shouldn't see them as static config). The detail is reference material — it belongs in a playbook.
+
+**Where it lives in the plugin** — Add a new entry to `_shared/references/playbooks/fab-cli-cheatsheet.md` (or a sibling playbook) covering the env-var table, where Studio sets each variable, and the canonical destination call. `plugins/vibedata-data-engineering/skills/running-dlt-in-fabric-sandbox/SKILL.md` cites it.
+
+**What "done" looks like**
+- The Fabric playbook contains the env-var table and the destination snippet.
+- The Fabric sandbox skill cites the playbook.
+- A grep for `EPHEMERAL_WORKSPACE_ID` lands on the playbook entry.
+
+**Source** — old-commit `e2a5a7b` Fabric sandbox skill lines 13–44.
+
+---
+
 ## Cross-cutting themes
 
 The Immediate items concentrate on **capturing knowledge at the right time** — at intake and design, while the Studio user is right there to answer questions, rather than letting the assistant guess later. They also concentrate on **making implicit defaults explicit** — schema contract values, destination names, debug-cleanup steps, the first-run loop. A third theme is **closing the silent-bug class** — attribution windows and commented overrides exist to stop bugs that don't surface until weeks later. The Soon items shift toward **single-source-of-truth hygiene** — referencing the guardrails playbook from every build skill, documenting cursor and cadence, picking one naming convention. The Deferred items are mostly **patterns the plugin will need when its scope grows** — operational artefacts, multi-track handoffs, upstream workflow gates — none of which block today's typical user.
@@ -773,7 +775,7 @@ The Immediate items concentrate on **capturing knowledge at the right time** —
 
 - **Splitting the coordinator into separate ingestion / transformation / data-quality plugins.** dlt-hub's multi-plugin shape is the right long-term architecture but premature for our single-track scope. Revisit when we add a second peer track.
 - **Adopting dlt-hub's paid 9,700-source context.** Studio sources are pre-vetted; the discovery problem the upstream solves doesn't exist for us.
-- **Mermaid schema export.** Per-field YAML serves the same purpose and is testable; the dashboard handoff (item 19) covers the visual need.
+- **Mermaid schema export.** Per-field YAML serves the same purpose and is testable; the dashboard handoff (item 18) covers the visual need.
 - **dlthub managed runtime deployment.** Our sandbox-versus-domain model is a different production pattern; we don't need the upstream deployment story.
 - **A vault-backed credentials path.** dlt's stock provider chain plus our existing Studio secrets handling is enough today; the vault pattern is a future operational concern.
 - **Multi-connection workspace ambiguity.** Today the convention is one workspace per connection; we'll revisit the ambiguity if a user files a case where it bites.
