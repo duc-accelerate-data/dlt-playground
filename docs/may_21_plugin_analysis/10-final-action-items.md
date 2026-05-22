@@ -58,28 +58,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 2. Attribution window on incremental resources
-
-**Priority** — Immediate
-
-**Home** — design-doc template, skill body
-
-**What it is** — Every resource that uses an incremental cursor records, in the Pipeline Inventory, how far back the source can still rewrite records. The plugin requires a value: `none`, `1h`, `7d`, `30d`, or `custom`. The generated pipeline wires that value into dlt's `lag` argument on `dlt.sources.incremental(...)` so that each run also rescans the trailing window — catching late-arriving and back-dated rows.
-
-**Why we need it** — Marketing platforms back-date events for up to 30 days; ad networks for 30 days; CRMs commonly for 7. Without the lag, the cursor advances past those edits and the warehouse copy quietly drifts. Today the plugin's resource-conventions playbook mentions this idea but no skill captures it on the Inventory and no generation step wires it through. This is one place where a silent bug is the default outcome.
-
-**Where it lives in the plugin** — Add an `attribution_window` column to the Pipeline Inventory template (the design-doc template the plugin inherits from). Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to require the column. Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to wire the value into `lag=`. Cross-reference from `_shared/references/playbooks/dlt-resource-conventions.md`.
-
-**What "done" looks like**
-- Pipeline Inventory rows for `merge` or incremental `append` resources cannot pass review without an `attribution_window` value.
-- Generated pipelines call `dlt.sources.incremental(..., lag=...)` with the value from the row.
-- Inventory rows with `none` carry a one-line rationale in the row's notes column.
-
-**Source** — 06 §5 item 6 (mutation window wiring); 08 §10 item 2; 09 §9 item 3.
-
----
-
-### 3. Schema contract defaults that work out of the box
+### 2. Schema contract defaults that work out of the box
 
 **Priority** — Immediate
 
@@ -100,7 +79,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 4. Comment every schema override
+### 3. Comment every schema override
 
 **Priority** — Immediate
 
@@ -120,7 +99,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 5. Make the pipeline-evaluation rules explicit
+### 4. Make the pipeline-evaluation rules explicit
 
 **Priority** — Immediate
 
@@ -141,7 +120,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 6. Debug-cleanup discipline
+### 5. Debug-cleanup discipline
 
 **Priority** — Immediate
 
@@ -162,7 +141,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 7. Named dev and prod destinations
+### 6. Named dev and prod destinations
 
 **Priority** — Immediate
 
@@ -183,7 +162,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 ---
 
-### 8. Clarify the bronze test layer
+### 7. Clarify the bronze test layer
 
 **Priority** — Immediate
 
@@ -208,7 +187,7 @@ Many items split across two homes — e.g. an attribution_window column is both 
 
 These items came out of comparing the current plugin (`main`) against the older version at commit `e2a5a7b`. Each entry is content that was load-bearing in the old version, dropped during the refactor, and not recovered by the new coordinator or by any shared reference. All are Immediate priority. Verified via cross-grep against `agents/data-engineer.md` and every file in `_shared/references/`.
 
-### 9. Structured table preview after a pipeline run
+### 8. Structured table preview after a pipeline run
 
 **Priority** — Immediate
 
@@ -223,13 +202,13 @@ These items came out of comparing the current plugin (`main`) against the older 
 **What "done" looks like**
 - `_shared/references/playbooks/dlt-pipeline-build-conventions.md` exists and contains the table-preview format spec.
 - `skills/generating-dlt-pipeline/SKILL.md` cites the playbook and requires the preview on every successful run.
-- The pipeline-evaluation audit (item 5) checks that a preview block was emitted.
+- The pipeline-evaluation audit (item 4) checks that a preview block was emitted.
 
 **Source** — old-commit `e2a5a7b` `generating-dlt-pipeline/SKILL.md` lines 19, 186–253.
 
 ---
 
-### 10. Mixed-shape wrapper for loose-decorator connectors
+### 9. Mixed-shape wrapper for loose-decorator connectors
 
 **Priority** — Immediate
 
@@ -239,7 +218,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 **Why we need it** — Without this in a lookup-able place, agents hit the AttributeError, don't recognise it, and either give up or write fragile workarounds. The refactor dropped the template entirely.
 
-**Where it lives in the plugin** — Add the wrapper template and the `with_args` vs `with_resources` rule to `_shared/references/playbooks/dlt-pipeline-build-conventions.md` (same playbook created in item 9). Have `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` cite it.
+**Where it lives in the plugin** — Add the wrapper template and the `with_args` vs `with_resources` rule to `_shared/references/playbooks/dlt-pipeline-build-conventions.md` (same playbook created in item 8). Have `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` cite it.
 
 **What "done" looks like**
 - The playbook contains the wrapper code template and the AttributeError symptom note.
@@ -250,7 +229,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 11. Foreground vs background Bash and polling rule
+### 10. Foreground vs background Bash and polling rule
 
 **Priority** — Immediate
 
@@ -271,17 +250,17 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 12. Entry-point chain between discovery and generation
+### 11. Entry-point chain between discovery and generation
 
 **Priority** — Immediate
 
 **Home** — skill body, design-doc template
 
-**What it is** — The discovery skill writes an `entry_point` column to the Pipeline Inventory recording the module path or callable the generated pipeline will import. The generation skill reads it and halts with `ENTRY_POINT_MISSING` if absent. The evaluator (item 5) checks the entry point resolves. The old plugin had this chain wired across both skills; the refactor broke it by dropping the column.
+**What it is** — The discovery skill writes an `entry_point` column to the Pipeline Inventory recording the module path or callable the generated pipeline will import. The generation skill reads it and halts with `ENTRY_POINT_MISSING` if absent. The evaluator (item 4) checks the entry point resolves. The old plugin had this chain wired across both skills; the refactor broke it by dropping the column.
 
 **Why we need it** — Without the chain, generation either guesses the import path (wrong half the time) or hard-codes one (brittle). The discovery step is the right time to capture it because the assistant has just inspected the source's module layout.
 
-**Where it lives in the plugin** — Add an `entry_point` column to the design-doc template (same template item 2 updates). Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to write the column. Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to read it and halt with `ENTRY_POINT_MISSING` when blank.
+**Where it lives in the plugin** — Add an `entry_point` column to the design-doc template (same template item 39 updates). Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to write the column. Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to read it and halt with `ENTRY_POINT_MISSING` when blank.
 
 **What "done" looks like**
 - The Pipeline Inventory template carries an `entry_point` column.
@@ -293,7 +272,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 13. Fabric destination env-var table and snippet
+### 12. Fabric destination env-var table and snippet
 
 **Priority** — Immediate
 
@@ -314,7 +293,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 14. `uv pip install` rule for the workspace venv
+### 13. `uv pip install` rule for the workspace venv
 
 **Priority** — Immediate
 
@@ -324,7 +303,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 **Why we need it** — Mixed tooling produces lockfile drift and slow installs. The rule is one line in the coordinator and every shell-running skill inherits it.
 
-**Where it lives in the plugin** — Add the rule to `plugins/vibedata-data-engineering/agents/data-engineer.md` (same "shell command discipline" subsection as item 11).
+**Where it lives in the plugin** — Add the rule to `plugins/vibedata-data-engineering/agents/data-engineer.md` (same "shell command discipline" subsection as item 10).
 
 **What "done" looks like**
 - `agents/data-engineer.md` requires `uv pip install` for all workspace installs.
@@ -334,7 +313,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 15. YAML field-documentation shape (`source_ref:` vs synthesized)
+### 14. YAML field-documentation shape (`source_ref:` vs synthesized)
 
 **Priority** — Immediate
 
@@ -355,17 +334,17 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 16. Golden-data fenced JSON outcome block
+### 15. Golden-data fenced JSON outcome block
 
 **Priority** — Immediate
 
 **Home** — skill body
 
-**What it is** — After running golden-data validation, the skill emits a fenced JSON block of the shape `{"outcome": "pass|fail|skipped", "details": ...}` so the evaluator (item 5) and downstream tooling can machine-read the result. The old `validating-golden-data` skill enforced this; the refactor dropped both the shape and the emission rule.
+**What it is** — After running golden-data validation, the skill emits a fenced JSON block of the shape `{"outcome": "pass|fail|skipped", "details": ...}` so the evaluator (item 4) and downstream tooling can machine-read the result. The old `validating-golden-data` skill enforced this; the refactor dropped both the shape and the emission rule.
 
 **Why we need it** — Without the block, the evaluator falls back to substring matching on free prose, which is brittle. The JSON contract is small and belongs inside the skill body that emits it — not a shared reference.
 
-**Where it lives in the plugin** — Add the exact JSON shape and the emission rule to the body of `plugins/vibedata-data-engineering/skills/validating-golden-data/SKILL.md`. The evaluator rule set (item 5) checks for the block.
+**Where it lives in the plugin** — Add the exact JSON shape and the emission rule to the body of `plugins/vibedata-data-engineering/skills/validating-golden-data/SKILL.md`. The evaluator rule set (item 4) checks for the block.
 
 **What "done" looks like**
 - `validating-golden-data/SKILL.md` documents the JSON shape and requires emission on every run.
@@ -378,7 +357,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ## Soon
 
-### 17. `allow_external_schedulers=True` on incremental resources
+### 16. `allow_external_schedulers=True` on incremental resources
 
 **Priority** — Soon
 
@@ -388,7 +367,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 **Why we need it** — Standard on production verified sources (Zendesk, Shopify). Absence is silent — pipelines work — until a scheduled CI run starts double-tracking state. Cheap to set; expensive to debug after the fact.
 
-**Where it lives in the plugin** — Add a pattern card to `_shared/references/patterns/dlt-patterns.md` describing the knob, when to set it, and the silent-failure mode. Reference the pattern from `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md`. The pipeline-evaluation audit (item 5) should check it.
+**Where it lives in the plugin** — Add a pattern card to `_shared/references/patterns/dlt-patterns.md` describing the knob, when to set it, and the silent-failure mode. Reference the pattern from `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md`. The pipeline-evaluation audit (item 4) should check it.
 
 **What "done" looks like**
 - The pattern catalogue carries the card.
@@ -400,7 +379,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 18. `max_table_nesting=2` and `row_order` decisions
+### 17. `max_table_nesting=2` and `row_order` decisions
 
 **Priority** — Soon
 
@@ -422,7 +401,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 19. Backfill as a separate pipeline
+### 18. Backfill as a separate pipeline
 
 **Priority** — Soon
 
@@ -443,7 +422,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 20. Load-outcome staging model
+### 19. Load-outcome staging model
 
 **Priority** — Soon
 
@@ -464,7 +443,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 21. Workspace dashboard handoff
+### 20. Workspace dashboard handoff
 
 **Priority** — Soon
 
@@ -484,7 +463,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 22. Reference the medallion-guardrails playbook from every dlt build skill
+### 21. Reference the medallion-guardrails playbook from every dlt build skill
 
 **Priority** — Soon
 
@@ -504,7 +483,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 23. Tag pipeline runs with the git commit ID
+### 22. Tag pipeline runs with the git commit ID
 
 **Priority** — Soon
 
@@ -525,7 +504,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 24. Pipeline documentation must include cursor, cadence, owner, blast radius
+### 23. Pipeline documentation must include cursor, cadence, owner, blast radius
 
 **Priority** — Soon
 
@@ -545,7 +524,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 25. Snapshot test for nested shapes
+### 24. Snapshot test for nested shapes
 
 **Priority** — Soon
 
@@ -566,7 +545,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 26. Resolve `raw_<system>` vs `src_<connection>` naming in writing
+### 25. Resolve `raw_<system>` vs `src_<connection>` naming in writing
 
 **Priority** — Soon
 
@@ -587,7 +566,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 27. `dev_mode=True` during sandbox iteration
+### 26. `dev_mode=True` during sandbox iteration
 
 **Priority** — Soon
 
@@ -610,7 +589,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ## Deferred
 
-### 28. Typed multi-auth credentials
+### 27. Typed multi-auth credentials
 
 **Home** — skill body
 
@@ -622,7 +601,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 29. Pydantic "is this model authoritative?" decision
+### 28. Pydantic "is this model authoritative?" decision
 
 **Home** — skill body
 
@@ -634,7 +613,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 30. Schema-change allow-list PR workflow
+### 29. Schema-change allow-list PR workflow
 
 **Home** — playbook, Studio code
 
@@ -646,7 +625,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 31. Operational-artefacts checklist (runbooks, freshness gates, drift alerts)
+### 30. Operational-artefacts checklist (runbooks, freshness gates, drift alerts)
 
 **Home** — playbook
 
@@ -658,7 +637,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 32. Find-a-better-connector gate
+### 31. Find-a-better-connector gate
 
 **Home** — skill body
 
@@ -670,7 +649,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 33. Bidirectional symmetric handoffs between tracks
+### 32. Bidirectional symmetric handoffs between tracks
 
 **Home** — coordinator
 
@@ -682,7 +661,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 34. Upstream-gap TODO discipline
+### 33. Upstream-gap TODO discipline
 
 **Home** — skill body
 
@@ -694,7 +673,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 35. Surface inventory-as-contract upstream
+### 34. Surface inventory-as-contract upstream
 
 **Home** — playbook (external)
 
@@ -704,17 +683,17 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 36. Surface two-stage schema-pinning gotcha upstream
+### 35. Surface two-stage schema-pinning gotcha upstream
 
 **Home** — playbook (external)
 
-**What it is** — Document in the research playbook that freezing tables at generation time raises a dlt validation error; tables can only be frozen after the first successful load. Same reason for deferral as item 35.
+**What it is** — Document in the research playbook that freezing tables at generation time raises a dlt validation error; tables can only be frozen after the first successful load. Same reason for deferral as item 34.
 
 **Source** — 08 §10 item 9.
 
 ---
 
-### 37. Surface fixture-replay-plus-golden upstream
+### 36. Surface fixture-replay-plus-golden upstream
 
 **Home** — playbook (external)
 
@@ -724,7 +703,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 38. Surface sandbox-vs-domain isolation upstream
+### 37. Surface sandbox-vs-domain isolation upstream
 
 **Home** — playbook (external)
 
@@ -734,7 +713,7 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
-### 39. Pre-build source profiling
+### 38. Pre-build source profiling
 
 **Priority** — Deferred
 
@@ -757,6 +736,29 @@ These items came out of comparing the current plugin (`main`) against the older 
 
 ---
 
+### 39. Attribution window on incremental resources
+
+**Priority** — Deferred
+
+**Why deferred** — This is the *wiring and enforcement* half of attribution-window discipline (require the value on every inventory row, wire it into dlt's `lag` argument, audit both). The *detection* half — figuring out how far back a given source actually rewrites records — was deferred separately as item 38 (Pre-build source profiling), because detection cannot be done from passive sampling alone and the existing discovery skill explicitly forbids live source connections. Shipping this item without a way to determine the value would force a fallback: ask the user, use curated per-connector metadata, or default to a conservative window. All three are workable but each is a substantial design decision in its own right. Defer until either (a) item 38 lands and provides authoritative values, or (b) we commit to one of the fallback approaches and that fallback gets its own scoped item.
+
+**Home** — design-doc template, skill body
+
+**What it is** — Every resource that uses an incremental cursor records, in the Pipeline Inventory, how far back the source can still rewrite records. The plugin requires a value: `none`, `1h`, `7d`, `30d`, or `custom`. The generated pipeline wires that value into dlt's `lag` argument on `dlt.sources.incremental(...)` so that each run also rescans the trailing window — catching late-arriving and back-dated rows.
+
+**Why we need it** — Marketing platforms back-date events for up to 30 days; ad networks for 30 days; CRMs commonly for 7. Without the lag, the cursor advances past those edits and the warehouse copy quietly drifts. Today the plugin's resource-conventions playbook mentions this idea but no skill captures it on the Inventory and no generation step wires it through. This is one place where a silent bug is the default outcome.
+
+**Where it lives in the plugin** — Add an `attribution_window` column to the Pipeline Inventory template (the design-doc template the plugin inherits from). Update `plugins/vibedata-data-engineering/skills/discovering-source-schema/SKILL.md` to require the column. Update `plugins/vibedata-data-engineering/skills/generating-dlt-pipeline/SKILL.md` to wire the value into `lag=`. Cross-reference from `_shared/references/playbooks/dlt-resource-conventions.md`.
+
+**What "done" looks like**
+- Pipeline Inventory rows for `merge` or incremental `append` resources cannot pass review without an `attribution_window` value.
+- Generated pipelines call `dlt.sources.incremental(..., lag=...)` with the value from the row.
+- Inventory rows with `none` carry a one-line rationale in the row's notes column.
+
+**Source** — 06 §5 item 6 (mutation window wiring); 08 §10 item 2; 09 §9 item 3.
+
+---
+
 ## Cross-cutting themes
 
 The Immediate items concentrate on **capturing knowledge at the right time** — at intake and design, while the Studio user is right there to answer questions, rather than letting the assistant guess later. They also concentrate on **making implicit defaults explicit** — schema contract values, destination names, debug-cleanup steps, the first-run loop. A third theme is **closing the silent-bug class** — attribution windows and commented overrides exist to stop bugs that don't surface until weeks later. The Soon items shift toward **single-source-of-truth hygiene** — referencing the guardrails playbook from every build skill, documenting cursor and cadence, picking one naming convention. The Deferred items are mostly **patterns the plugin will need when its scope grows** — operational artefacts, multi-track handoffs, upstream workflow gates — none of which block today's typical user.
@@ -765,7 +767,7 @@ The Immediate items concentrate on **capturing knowledge at the right time** —
 
 - **Splitting the coordinator into separate ingestion / transformation / data-quality plugins.** dlt-hub's multi-plugin shape is the right long-term architecture but premature for our single-track scope. Revisit when we add a second peer track.
 - **Adopting dlt-hub's paid 9,700-source context.** Studio sources are pre-vetted; the discovery problem the upstream solves doesn't exist for us.
-- **Mermaid schema export.** Per-field YAML serves the same purpose and is testable; the dashboard handoff (item 21) covers the visual need.
+- **Mermaid schema export.** Per-field YAML serves the same purpose and is testable; the dashboard handoff (item 20) covers the visual need.
 - **dlthub managed runtime deployment.** Our sandbox-versus-domain model is a different production pattern; we don't need the upstream deployment story.
 - **A vault-backed credentials path.** dlt's stock provider chain plus our existing Studio secrets handling is enough today; the vault pattern is a future operational concern.
 - **Multi-connection workspace ambiguity.** Today the convention is one workspace per connection; we'll revisit the ambiguity if a user files a case where it bites.
